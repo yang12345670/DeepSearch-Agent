@@ -1,0 +1,39 @@
+{
+  "version": 1,
+  "embedding_backend": "sentence_transformers",
+  "embedding_model": "sentence-transformers/all-MiniLM-L6-v2",
+  "embedding_dim": 384,
+  "chunks": [
+    {
+      "chunk_id": "kafka_vs_pulsar.md_0",
+      "text": "Kafka is designed for high-throughput append-only log processing and has a mature ecosystem.\nPulsar separates compute and storage, supports multi-tenancy, and is suitable for cloud-native messaging scenarios.\nKafka is often preferred when ecosystem maturity and operational familiarity are priorities.\nPulsar may be preferred when geo-replication and storage-compute separation are important.",
+      "metadata": {
+        "source": "kafka_vs_pulsar.md",
+        "chunk_index": 0,
+        "char_start": 0,
+        "char_end": 392
+      }
+    },
+    {
+      "chunk_id": "rag_reranker.md_0",
+      "text": "Hybrid RAG combines sparse retrieval and dense retrieval.\nSparse retrieval such as BM25 is good for exact keyword matching.\nDense retrieval is better for semantic similarity.\nA cross-encoder reranker can improve final relevance by scoring query-document pairs more precisely.",
+      "metadata": {
+        "source": "rag_reranker.md",
+        "chunk_index": 0,
+        "char_start": 0,
+        "char_end": 275
+      }
+    },
+    {
+      "chunk_id": "redis_memory.md_0",
+      "text": "Redis can be used as short-term memory for agent systems.\nA common design is to store recent conversation turns, tool traces, and task state in Redis.\nUsing a sliding window helps control token cost while preserving recent context.",
+      "metadata": {
+        "source": "redis_memory.md",
+        "chunk_index": 0,
+        "char_start": 0,
+        "char_end": 231
+      }
+    }
+  ],
+  "dense_storage": "numpy_npy"
+}

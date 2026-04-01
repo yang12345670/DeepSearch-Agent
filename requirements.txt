@@ -1,0 +1,14 @@
+fastapi
+uvicorn
+pydantic
+python-dotenv
+python-multipart
+openai
+sentence-transformers
+rank-bm25
+jieba
+numpy
+redis
+supabase
+# Optional: for FAISS-backed dense/long-term memory
+faiss-cpu

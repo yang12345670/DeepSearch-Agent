@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python:*)",
+      "Bash(where redis-server:*)",
+      "Bash(pip show:*)",
+      "Bash(redis-cli ping:*)",
+      "Bash(cd:*)",
+      "Bash(pip install:*)",
+      "Bash(python -X utf8 -c \":*)"
+    ]
+  }
+}

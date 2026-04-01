@@ -1,0 +1,8 @@
+.env
+__pycache__/
+*.pyc
+data/index/
+data/memory/
+data/eval_results.json
+*.npy
+*.faiss

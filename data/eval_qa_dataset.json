@@ -1,0 +1,182 @@
+[
+  {
+    "question": "在智能体系统中，Redis 通常被用来充当什么角色？",
+    "answer": "short-term memory",
+    "evidence": "Redis can be used as short-term memory for agent systems.",
+    "keywords": ["Redis", "short-term memory", "agent"]
+  },
+  {
+    "question": "Redis 存储智能体记忆时，通常保存哪三类数据？",
+    "answer": "recent conversation turns, tool traces, and task state",
+    "evidence": "A common design is to store recent conversation turns, tool traces, and task state in Redis.",
+    "keywords": ["Redis", "conversation turns", "tool traces", "task state"]
+  },
+  {
+    "question": "Hybrid RAG 中用于精确关键词匹配的稀疏检索方法是什么？",
+    "answer": "BM25",
+    "evidence": "Sparse retrieval such as BM25 is good for exact keyword matching.",
+    "keywords": ["BM25", "sparse retrieval", "keyword matching", "Hybrid RAG"]
+  },
+  {
+    "question": "Hybrid RAG 中用于提升最终相关性的重排序模型是什么类型？",
+    "answer": "cross-encoder reranker",
+    "evidence": "A cross-encoder reranker can improve final relevance by scoring query-document pairs more precisely.",
+    "keywords": ["cross-encoder", "reranker", "relevance"]
+  },
+  {
+    "question": "Kafka 的设计特点是什么类型的日志处理？",
+    "answer": "high-throughput append-only log processing",
+    "evidence": "Kafka is designed for high-throughput append-only log processing and has a mature ecosystem.",
+    "keywords": ["Kafka", "high-throughput", "append-only", "log processing"]
+  },
+  {
+    "question": "Pulsar 在什么场景下比 Kafka 更受青睐？",
+    "answer": "geo-replication and storage-compute separation",
+    "evidence": "Pulsar may be preferred when geo-replication and storage-compute separation are important.",
+    "keywords": ["Pulsar", "geo-replication", "storage-compute separation"]
+  },
+  {
+    "question": "根据认知心理学，人类的感觉记忆持续时间是多久？",
+    "answer": "0.5-3秒",
+    "evidence": "感觉记忆（Sensory Memory）：持续时间极短（0.5-3秒），容量巨大，负责暂时保存感官接收到的所有信息",
+    "keywords": ["感觉记忆", "Sensory Memory", "0.5-3秒"]
+  },
+  {
+    "question": "人类工作记忆的容量限制是多少个项目？",
+    "answer": "7±2个项目",
+    "evidence": "工作记忆（Working Memory）：持续时间短（15-30秒），容量有限（7±2个项目），负责当前任务的信息处理",
+    "keywords": ["工作记忆", "Working Memory", "7±2"]
+  },
+  {
+    "question": "人类工作记忆的持续时间大约是多久？",
+    "answer": "15-30秒",
+    "evidence": "工作记忆（Working Memory）：持续时间短（15-30秒），容量有限（7±2个项目）",
+    "keywords": ["工作记忆", "Working Memory", "15-30秒"]
+  },
+  {
+    "question": "HelloAgents记忆系统中，用于高性能语义检索的向量存储后端是什么？",
+    "answer": "QdrantVectorStore",
+    "evidence": "QdrantVectorStore - 向量存储（高性能语义检索）",
+    "keywords": ["QdrantVectorStore", "向量存储", "语义检索"]
+  },
+  {
+    "question": "HelloAgents记忆系统中，用于知识图谱管理的图存储后端是什么？",
+    "answer": "Neo4jGraphStore",
+    "evidence": "Neo4jGraphStore - 图存储（知识图谱管理）",
+    "keywords": ["Neo4jGraphStore", "图存储", "知识图谱"]
+  },
+  {
+    "question": "HelloAgents嵌入服务层中，用于轻量级兜底的嵌入方案是什么？",
+    "answer": "TFIDFEmbedding",
+    "evidence": "TFIDFEmbedding - TFIDF嵌入（轻量级兜底）",
+    "keywords": ["TFIDFEmbedding", "TFIDF", "轻量级兜底"]
+  },
+  {
+    "question": "HelloAgents RAG系统的智能问答层使用了哪些多策略检索方式？",
+    "answer": "向量检索 + MQE + HyDE",
+    "evidence": "多策略检索 - 向量检索 + MQE + HyDE",
+    "keywords": ["多策略检索", "MQE", "HyDE", "向量检索"]
+  },
+  {
+    "question": "上下文工程（Context Engineering）的 GSSC 流水线包含哪四个步骤？",
+    "answer": "Gather-Select-Structure-Compress",
+    "evidence": "ContextBuilder (`hello_agents/context/builder.py`)：上下文构建器，实现 GSSC (Gather-Select-Structure-Compress) 流水线",
+    "keywords": ["GSSC", "Gather", "Select", "Structure", "Compress", "上下文工程"]
+  },
+  {
+    "question": "安装 HelloAgents 上下文工程章节对应的版本需要什么命令？",
+    "answer": "pip install \"hello-agents[all]==0.2.8\"",
+    "evidence": "pip install \"hello-agents[all]==0.2.8\"",
+    "keywords": ["hello-agents", "0.2.8", "pip install"]
+  },
+  {
+    "question": "上下文腐蚀（context rot）指的是什么现象？",
+    "answer": "随着上下文窗口中的 tokens 增加，模型从上下文中准确回忆信息的能力反而下降",
+    "evidence": "上下文腐蚀（context rot）——随着上下文窗口中的 tokens 增加，模型从上下文中准确回忆信息的能力反而下降",
+    "keywords": ["上下文腐蚀", "context rot", "tokens", "回忆信息"]
+  },
+  {
+    "question": "Transformer 的自注意力机制中，Q、K、V 分别代表什么角色？",
+    "answer": "Query",
+    "evidence": "Query (Q)：Current token actively seeking information; Key (K)：Index/label of tokens being queried; Value (V)：Content/information of tokens",
+    "keywords": ["Query", "Key", "Value", "自注意力", "Transformer"]
+  },
+  {
+    "question": "N-gram 模型中，Bigram 对应的 N 值是多少？",
+    "answer": "N=2",
+    "evidence": "Bigram (当 N=2 时) ：这是最简单的情况，我们假设一个词的出现只与它前面的一个词有关",
+    "keywords": ["Bigram", "N=2", "N-gram"]
+  },
+  {
+    "question": "马尔可夫假设的核心思想是什么？",
+    "answer": "一个词的出现概率只与它前面有限的",
+    "evidence": "可以近似地认为，一个词的出现概率只与它前面有限的 $n−1$ 个词有关",
+    "keywords": ["马尔可夫假设", "Markov Assumption", "N-gram"]
+  },
+  {
+    "question": "LSTM 中用于决定丢弃哪些信息的门控机制叫什么？",
+    "answer": "遗忘门",
+    "evidence": "Forget Gate: Decide what to discard from previous cell state",
+    "keywords": ["LSTM", "Forget Gate", "遗忘门", "门控机制"]
+  },
+  {
+    "question": "MCP（Model Context Protocol）是由哪个团队提出的？",
+    "answer": "Anthropic",
+    "evidence": "MCP（Model Context Protocol）由 Anthropic 团队提出",
+    "keywords": ["MCP", "Model Context Protocol", "Anthropic"]
+  },
+  {
+    "question": "A2A（Agent-to-Agent Protocol）是由哪个团队提出的？",
+    "answer": "Google",
+    "evidence": "A2A（Agent-to-Agent Protocol）协议由 Google 团队提出",
+    "keywords": ["A2A", "Agent-to-Agent", "Google"]
+  },
+  {
+    "question": "MCP 的设计哲学核心理念是什么？",
+    "answer": "上下文共享",
+    "evidence": "MCP 的设计哲学是\u201c上下文共享\u201d",
+    "keywords": ["MCP", "上下文共享", "设计哲学"]
+  },
+  {
+    "question": "安装 HelloAgents 通信协议版本需要什么命令？",
+    "answer": "pip install \"hello-agents[protocol]==0.2.2\"",
+    "evidence": "pip install \"hello-agents[protocol]==0.2.2\"",
+    "keywords": ["hello-agents", "protocol", "0.2.2", "pip install"]
+  },
+  {
+    "question": "MCP 架构的三层分别是什么？",
+    "answer": "宿主层",
+    "evidence": "Host (宿主层): Claude Desktop; Client (客户端层): MCP Client; Server (服务器层): MCP Server",
+    "keywords": ["MCP", "Host", "Client", "Server", "三层架构"]
+  },
+  {
+    "question": "深度研究助手的智能体层包含哪三个专门 Agent？",
+    "answer": "TODO Planner、Task Summarizer、Report Writer",
+    "evidence": "三个专门 Agent（TODO Planner、Task Summarizer、Report Writer）+ 两个核心工具（SearchTool、NoteTool）",
+    "keywords": ["TODO Planner", "Task Summarizer", "Report Writer", "深度研究"]
+  },
+  {
+    "question": "深度研究助手能将 1-2 小时的研究工作压缩到多长时间？",
+    "answer": "5-10 分钟",
+    "evidence": "节省时间：将 1-2 小时的研究工作压缩到 5-10 分钟",
+    "keywords": ["深度研究", "节省时间", "5-10分钟"]
+  },
+  {
+    "question": "深度研究助手后端的 API 路由端点是什么？",
+    "answer": "/research/stream",
+    "evidence": "后端层 (FastAPI)：API 路由（`/research/stream`）",
+    "keywords": ["FastAPI", "/research/stream", "API路由", "深度研究"]
+  },
+  {
+    "question": "深度研究助手的前端技术栈是什么？",
+    "answer": "Vue3+TypeScript",
+    "evidence": "前端层 (Vue3+TypeScript)：全屏模态对话框 UI、Markdown 结果可视化",
+    "keywords": ["Vue3", "TypeScript", "前端", "深度研究"]
+  },
+  {
+    "question": "HelloAgents 框架要求的最低 Python 版本是多少？",
+    "answer": "Python 3.10+",
+    "evidence": "pip install \"hello-agents==0.1.1\"  # Requires Python 3.10+",
+    "keywords": ["HelloAgents", "Python 3.10", "版本要求"]
+  }
+]
