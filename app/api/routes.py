@@ -49,11 +49,12 @@ def chat(req: ChatRequest) -> ChatResponse:
     """Chat endpoint with optional session_id."""
     pipeline = get_agent_pipeline()
     session_id = getattr(req, "session_id", None) or "default"
+    user_id = getattr(req, "user_id", None) or "default"
 
     # Ensure session exists in Supabase (auto-create with first user message as title)
     chat_store.create_session(session_id, title=req.query[:30] or "New Chat")
 
-    result = pipeline.run(query=req.query, session_id=session_id)
+    result = pipeline.run(query=req.query, session_id=session_id, user_id=user_id)
     return ChatResponse(
         answer=result.answer,
         debug_trace=result.debug_trace or None,
@@ -79,6 +80,16 @@ def get_history(session_id: str) -> ChatHistoryResponse:
     """Get all messages for a session."""
     messages = chat_store.get_messages(session_id)
     return ChatHistoryResponse(session_id=session_id, messages=messages)
+
+
+@router.patch("/chat/sessions/{session_id}")
+def rename_session(session_id: str, body: dict) -> dict:
+    """Rename a session."""
+    title = body.get("title", "").strip()
+    if not title:
+        return {"success": False, "error": "title is required"}
+    chat_store.update_session(session_id, title=title)
+    return {"success": True, "session_id": session_id}
 
 
 @router.delete("/chat/sessions/{session_id}")

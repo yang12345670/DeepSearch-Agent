@@ -14,6 +14,117 @@ python scripts/eval_retrieval.py --tag <your-tag>
 
 ---
 
+## [2026-04-01] 新增：Answer 层评测体系
+
+### 背景
+
+原有评测只覆盖检索层（Hit@1/3/5 + 答案子串匹配），无法衡量回答质量、证据一致性、拒答行为、噪声抗干扰等维度。
+
+### 新增文件
+
+| 文件 | 作用 |
+|------|------|
+| `data/eval_answer_benchmark.json` | Answer 层评测 Schema 设计（20 条，JSON 格式） |
+| `data/answer_eval_dataset.jsonl` | 正式评测数据集（50 条，JSONL 格式） |
+| `data/eval_qa_dataset.json` | 检索层 QA 数据集扩展（30 → 68 条） |
+| `data/test_predictions.jsonl` | 测试用预测文件（12 条，验证流程用） |
+| `scripts/scoring_rubric.py` | 6 维评分标准模块（M1-M6 + 权重 + 阈值） |
+| `scripts/eval_answer.py` | 在线 Answer 层评测（调 `/eval/query` 接口） |
+| `scripts/eval_answer_offline.py` | 离线评测管线（读预测 JSONL + 7 类错误标签 + Markdown 报告） |
+| `scripts/prediction_adapter.py` | 适配器：真实 Agent 输出 → 评测预测格式 |
+| `scripts/eval_compare.py` | 多检索设置对比（BM25/Dense/Hybrid/Reranker 横向比较） |
+| `scripts/dataset_generation_prompts.md` | 数据集生成提示词模板（4 种题型 + 批量模板） |
+
+### 评测数据集（50 条）
+
+| 题型 | 数量 | 测什么 |
+|------|------|--------|
+| fully_supported | 22 | 答案正确性 + 证据一致性 |
+| partially_supported | 9 | 部分作答 + 标注信息缺口 |
+| unsupported | 10 | 正确拒答（不编造） |
+| noisy_context | 9 | 噪声干扰下提取正确答案 |
+
+覆盖 18 个来源文档，难度分布：easy 20 / medium 20 / hard 10。
+
+### 6 维评分标准
+
+| 维度 | 指标 | 方向 |
+|------|------|------|
+| M1 答案正确性 | key_point 召回率 | 高好 |
+| M2 证据一致性 | 句子级 6-char 重叠率 | 高好 |
+| M3 无支撑声明率 | 超出检索内容的声明比例 | 低好 |
+| M4 正确拒答 | 拒答短语检测（中英） | 二值 |
+| M5 部分作答合规 | 答对 + 标注缺口 | 高好 |
+| M6 噪声泄漏率 | 干扰项特征词泄漏比例 | 低好 |
+
+各题型权重不同，综合为 composite_score（0-1）。
+
+### 7 类错误标签
+
+`evidence_not_used` / `overclaim` / `incorrect_refusal` / `missing_refusal` / `partial_no_caveat` / `noise_distraction` / `missing_key_points` / `contradiction`
+
+### 使用方式
+
+```bash
+# 1. 从真实 Agent 收集预测
+python scripts/prediction_adapter.py live \
+  --benchmark data/answer_eval_dataset.jsonl \
+  --output data/model_predictions.jsonl
+
+# 2. 离线评测
+python scripts/eval_answer_offline.py \
+  --predictions data/model_predictions.jsonl --tag v1
+
+# 3. 多设置对比
+python scripts/eval_compare.py \
+  --results data/eval_results/bm25.json data/eval_results/hybrid.json --tag compare
+```
+
+### 输出
+
+- `data/eval_answer_offline_results.json` — 完整 JSON 报告
+- `data/eval_reports/eval_answer_offline_*.md` — 人可读 Markdown 报告
+- `data/eval_reports/comparison_*.md` — 多设置对比 Markdown
+
+---
+
+## [2026-04-01] 修复：前端交互 + 存储 bug + 跨会话记忆隔离
+
+### 问题描述
+
+1. **New Chat 按钮无效** — 点击后 `loadSessions()` 从 Supabase 拉列表，新 session 尚未持久化导致 SESSION_ID 被覆盖回旧会话
+2. **删除对话体验差** — 无确认弹窗、无即时 UI 反馈
+3. **缺少重命名功能** — 无法给对话重命名
+4. **发消息后聊天区闪烁** — `loadSessions` 内部调 `loadHistory` 清空重载了整个聊天区
+5. **`create_session` upsert 覆盖标题** — 每次发消息都会把 title/preview 覆盖，重命名后也会被还原
+6. **API 层缺少 user_id 传递** — `pipeline.run()` 始终用 `user_id="default"`，长期记忆无法按用户隔离
+7. **LLM 不知道当前会话** — 短期记忆上下文无会话标识，跨会话时可能混淆
+
+### 修改文件
+
+| 文件 | 改动 |
+|------|------|
+| `frontend/index.html` | New Chat 不再调 `loadSessions`，直接插入占位项；`loadSessions` 新增 `skipHistory` 参数；删除加确认弹窗 + 即时移除 UI；新增重命名功能（hover 显示 ✏ 按钮，点击变输入框） |
+| `app/storage/chat_store.py` | `create_session` 从 upsert 改为先查后插，已存在则跳过 |
+| `app/api/routes.py` | 新增 `PATCH /chat/sessions/{session_id}` 重命名接口；`/chat` 路由提取并传递 `user_id` |
+| `app/api/schemas.py` | `ChatRequest` 新增 `user_id` 字段 |
+| `app/memory/short_term.py` | `get_recent_context()` 开头加 `当前会话: {session_id}` |
+| `app/agent/pipeline.py` | 短期上下文为空时打 warning 日志 |
+
+**新增 API**：
+
+| Endpoint | 功能 |
+|----------|------|
+| `PATCH /chat/sessions/{session_id}` | 重命名会话（body: `{"title": "..."}`) |
+
+### 架构确认
+
+跨会话记忆模型经审查已基本正确，无需大改：
+- **短期记忆 (Redis)**：已按 `session_id` 隔离，key 格式 `deepsearch:st:{session_id}:*`
+- **长期记忆 (FAISS)**：全局共享单一索引，Session A 提取的知识在 Session B 中可召回
+
+---
+
 ## [2026-04-01] 新增：聊天历史云端持久化 (Supabase) + 侧边栏
 
 ### 问题描述

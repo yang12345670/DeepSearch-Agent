@@ -1,0 +1,12 @@
+{"id":"fs-101","answer":"Transformer 相比 RNN 有两个核心优势：并行处理能力和长距离依赖建模。自注意力机制可以同时计算所有位置的关系。","used_evidence_ids":["ch03-transformer-vs-rnn"],"final_context_ids":["ch03-transformer-vs-rnn"],"meta":{"model":"gpt-4o-mini","temperature":0.1}}
+{"id":"fs-102","answer":"正向链是数据驱动的推理方式，反向链是目标驱动的推理方式。","used_evidence_ids":["ch02-expert-system-chaining"],"final_context_ids":["ch02-expert-system-chaining"],"meta":{"model":"gpt-4o-mini"}}
+{"id":"fs-103","answer":"LangGraph 的条件边可以根据当前状态的值动态路由，决定下一步走哪个节点。","used_evidence_ids":["ch06-langgraph-conditional-edge"],"final_context_ids":["ch06-langgraph-conditional-edge"],"meta":{"model":"gpt-4o-mini"}}
+{"id":"fs-104","answer":"赛博小镇使用 Qdrant 作为向量数据库，SQLite 作为关系数据库来实现 NPC 记忆系统。","used_evidence_ids":["ch15-tech-stack"],"final_context_ids":["ch15-tech-stack"],"meta":{"model":"gpt-4o-mini"}}
+{"id":"ps-101","answer":"Dify 支持100+开源和商用模型，包括 GPT、DeepSeek、Llama。但文档中未提及水平扩展方案。","used_evidence_ids":["ch05-dify-models"],"final_context_ids":["ch05-dify-models"],"meta":{"model":"gpt-4o-mini"}}
+{"id":"ps-102","answer":"MYCIN 系统有600条 IF-THEN 规则，使用置信因子（CF）进行推理，范围从-1到1。关于贝叶斯网络的计算方式，文档中尚未涉及。","used_evidence_ids":["ch02-mycin-rules"],"final_context_ids":["ch02-mycin-rules"],"meta":{"model":"gpt-4o-mini"}}
+{"id":"ps-103","answer":"HelloAgents 要求 Python 3.10 及以上版本。不过文档中未提及对 Windows ARM64 平台的支持情况。","used_evidence_ids":["ch07-helloagents-install"],"final_context_ids":["ch07-helloagents-install"],"meta":{"model":"gpt-4o-mini"}}
+{"id":"us-101","answer":"抱歉，知识库中没有相关信息，无法回答关于 Terraform 部署的问题。","used_evidence_ids":[],"final_context_ids":[],"meta":{"model":"gpt-4o-mini"}}
+{"id":"us-102","answer":"根据知识库内容，未找到关于 OpenAI Assistants API File Search 工具的信息。","used_evidence_ids":[],"final_context_ids":[],"meta":{"model":"gpt-4o-mini"}}
+{"id":"us-103","answer":"CrewAI 的 hierarchical 和 sequential process 的性能对比数据在当前知识库中无法确定。","used_evidence_ids":[],"final_context_ids":[],"meta":{"model":"gpt-4o-mini"}}
+{"id":"nc-101","answer":"AgentScope 的 Message 数据结构包含四个字段：name、content、role 和 metadata。","used_evidence_ids":["ch06-agentscope-message"],"final_context_ids":["ch06-agentscope-message","ch07-helloagents-message"],"meta":{"model":"gpt-4o-mini"}}
+{"id":"nc-102","answer":"物理符号系统假说（PSSH）是由纽厄尔和西蒙于1976年提出的。","used_evidence_ids":["ch02-pssh"],"final_context_ids":["ch02-pssh","ch02-eliza","ch04-react"],"meta":{"model":"gpt-4o-mini"}}

@@ -1,0 +1,402 @@
+{
+  "$schema_version": "1.0",
+  "$description": "Answer-layer evaluation benchmark for DeepSearch Agent. Tests correctness, groundedness, noise resistance, refusal, and partial-answer behavior.",
+
+  "samples": [
+    {
+      "id": "fs-001",
+      "question": "ReAct 范式是由谁在哪一年提出的？",
+      "case_type": "fully_supported",
+      "gold_evidence_ids": ["ch04-react-origin"],
+      "gold_evidence_texts": [
+        "ReAct（Reasoning and Acting）由 Shunyu Yao 于2022年提出"
+      ],
+      "reference_answer": "ReAct 由 Shunyu Yao 于2022年提出",
+      "key_points": [
+        "Shunyu Yao",
+        "2022"
+      ],
+      "expected_behavior": "answer_correctly",
+      "acceptable_refusal": false,
+      "difficulty": "easy",
+      "source_doc": "第四章 智能体经典范式构建.md",
+      "tags": ["factual", "attribution", "agent-paradigm"]
+    },
+    {
+      "id": "fs-002",
+      "question": "智能体的四个基本要素是什么？",
+      "case_type": "fully_supported",
+      "gold_evidence_ids": ["ch01-agent-elements"],
+      "gold_evidence_texts": [
+        "智能体具备四个基本要素：环境（Environment）、传感器（Sensors）、执行器（Actuators）、自主性（Autonomy）"
+      ],
+      "reference_answer": "环境、传感器、执行器、自主性",
+      "key_points": [
+        "环境",
+        "传感器",
+        "执行器",
+        "自主性"
+      ],
+      "expected_behavior": "answer_correctly",
+      "acceptable_refusal": false,
+      "difficulty": "easy",
+      "source_doc": "第一章 初识智能体.md",
+      "tags": ["factual", "enumeration", "agent-basics"]
+    },
+    {
+      "id": "fs-003",
+      "question": "GSSC 流水线的四个步骤是什么？",
+      "case_type": "fully_supported",
+      "gold_evidence_ids": ["ch09-gssc"],
+      "gold_evidence_texts": [
+        "ContextBuilder 实现 GSSC (Gather-Select-Structure-Compress) 流水线"
+      ],
+      "reference_answer": "Gather、Select、Structure、Compress",
+      "key_points": [
+        "Gather",
+        "Select",
+        "Structure",
+        "Compress"
+      ],
+      "expected_behavior": "answer_correctly",
+      "acceptable_refusal": false,
+      "difficulty": "easy",
+      "source_doc": "第九章 上下文工程.md",
+      "tags": ["factual", "enumeration", "context-engineering"]
+    },
+    {
+      "id": "fs-004",
+      "question": "MYCIN 系统包含多少条规则，用于诊断什么疾病？",
+      "case_type": "fully_supported",
+      "gold_evidence_ids": ["ch02-mycin"],
+      "gold_evidence_texts": [
+        "MYCIN系统包含600条 IF-THEN 规则，用于诊断细菌性血液感染"
+      ],
+      "reference_answer": "600条 IF-THEN 规则，用于诊断细菌性血液感染",
+      "key_points": [
+        "600",
+        "细菌性血液感染"
+      ],
+      "expected_behavior": "answer_correctly",
+      "acceptable_refusal": false,
+      "difficulty": "easy",
+      "source_doc": "第二章 智能体发展史.md",
+      "tags": ["factual", "historical", "expert-system"]
+    },
+    {
+      "id": "fs-005",
+      "question": "MCP 架构的三层分别是什么？",
+      "case_type": "fully_supported",
+      "gold_evidence_ids": ["ch10-mcp-layers"],
+      "gold_evidence_texts": [
+        "Host (宿主层): Claude Desktop; Client (客户端层): MCP Client; Server (服务器层): MCP Server"
+      ],
+      "reference_answer": "Host（宿主层）、Client（客户端层）、Server（服务器层）",
+      "key_points": [
+        "Host",
+        "Client",
+        "Server"
+      ],
+      "expected_behavior": "answer_correctly",
+      "acceptable_refusal": false,
+      "difficulty": "easy",
+      "source_doc": "第十章 智能体通信协议.md",
+      "tags": ["factual", "enumeration", "protocol"]
+    },
+    {
+      "id": "fs-006",
+      "question": "AutoGen 的设计哲学是什么？",
+      "case_type": "fully_supported",
+      "gold_evidence_ids": ["ch06-autogen"],
+      "gold_evidence_texts": [
+        "AutoGen 设计哲学：\"对话驱动协作\"（Dialogue-driven collaboration）"
+      ],
+      "reference_answer": "对话驱动协作",
+      "key_points": [
+        "对话驱动协作"
+      ],
+      "expected_behavior": "answer_correctly",
+      "acceptable_refusal": false,
+      "difficulty": "easy",
+      "source_doc": "第六章 框架开发实践.md",
+      "tags": ["factual", "framework"]
+    },
+    {
+      "id": "fs-007",
+      "question": "赛博小镇好感度系统的五个等级及其分值范围是什么？",
+      "case_type": "fully_supported",
+      "gold_evidence_ids": ["ch15-affinity"],
+      "gold_evidence_texts": [
+        "好感度五个等级：陌生人（0-20）、熟悉（21-40）、友好（41-60）、亲密（61-80）、挚友（81-100）"
+      ],
+      "reference_answer": "陌生人(0-20)、熟悉(21-40)、友好(41-60)、亲密(61-80)、挚友(81-100)",
+      "key_points": [
+        "陌生人",
+        "熟悉",
+        "友好",
+        "亲密",
+        "挚友"
+      ],
+      "expected_behavior": "answer_correctly",
+      "acceptable_refusal": false,
+      "difficulty": "medium",
+      "source_doc": "第十五章 构建赛博小镇.md",
+      "tags": ["factual", "enumeration", "game-design"]
+    },
+    {
+      "id": "fs-008",
+      "question": "Dify 平台使用什么加密标准来保障企业级安全？",
+      "case_type": "fully_supported",
+      "gold_evidence_ids": ["ch05-dify-security"],
+      "gold_evidence_texts": [
+        "Dify 企业级安全：AES-256加密、RBAC权限控制、审计日志"
+      ],
+      "reference_answer": "AES-256加密",
+      "key_points": [
+        "AES-256"
+      ],
+      "expected_behavior": "answer_correctly",
+      "acceptable_refusal": false,
+      "difficulty": "medium",
+      "source_doc": "第五章 基于低代码平台的智能体搭建.md",
+      "tags": ["factual", "platform", "security"]
+    },
+
+    {
+      "id": "ps-001",
+      "question": "CAMEL 框架支持哪些模型提供商，以及它的多智能体冲突仲裁机制是怎样的？",
+      "case_type": "partially_supported",
+      "gold_evidence_ids": ["ch06-camel-models"],
+      "gold_evidence_texts": [
+        "CAMEL 现代扩展支持多模型：OpenAI、Anthropic、Google、开源模型"
+      ],
+      "reference_answer": "CAMEL 支持 OpenAI、Anthropic、Google 及开源模型。文档中未提及多智能体冲突仲裁机制。",
+      "key_points": [
+        "OpenAI",
+        "Anthropic",
+        "Google"
+      ],
+      "expected_behavior": "partial_answer_with_caveat",
+      "acceptable_refusal": false,
+      "difficulty": "medium",
+      "source_doc": "第六章 框架开发实践.md",
+      "tags": ["partial", "framework", "multi-part-question"],
+      "unsupported_subquestion": "多智能体冲突仲裁机制"
+    },
+    {
+      "id": "ps-002",
+      "question": "GUI Agent 在真实场景中的成功率是多少？有哪些已验证的提升方法？",
+      "case_type": "partially_supported",
+      "gold_evidence_ids": ["extra06-gui-accuracy"],
+      "gold_evidence_texts": [
+        "GUI Agent 准确率瓶颈：真实场景中成功率约40-50%"
+      ],
+      "reference_answer": "成功率约40-50%。文档中未详细记载已验证的提升方法。",
+      "key_points": [
+        "40-50%"
+      ],
+      "expected_behavior": "partial_answer_with_caveat",
+      "acceptable_refusal": false,
+      "difficulty": "medium",
+      "source_doc": "Extra06-GUIAgent科普与实战.md",
+      "tags": ["partial", "gui-agent", "accuracy"],
+      "unsupported_subquestion": "已验证的提升方法"
+    },
+    {
+      "id": "ps-003",
+      "question": "AgentScope 是谁开发的？它与 LangChain 的性能对比数据是怎样的？",
+      "case_type": "partially_supported",
+      "gold_evidence_ids": ["ch06-agentscope-origin"],
+      "gold_evidence_texts": [
+        "AgentScope 由阿里巴巴达摩院（Alibaba DAMO Academy）开发"
+      ],
+      "reference_answer": "AgentScope 由阿里巴巴达摩院开发。文档中没有与 LangChain 的性能对比数据。",
+      "key_points": [
+        "阿里巴巴达摩院"
+      ],
+      "expected_behavior": "partial_answer_with_caveat",
+      "acceptable_refusal": false,
+      "difficulty": "medium",
+      "source_doc": "第六章 框架开发实践.md",
+      "tags": ["partial", "framework", "comparison"],
+      "unsupported_subquestion": "与 LangChain 的性能对比数据"
+    },
+    {
+      "id": "ps-004",
+      "question": "GRPO 的全称是什么？它与 PPO 相比有什么优势？",
+      "case_type": "partially_supported",
+      "gold_evidence_ids": ["ch11-grpo"],
+      "gold_evidence_texts": [
+        "GRPO（Group Relative Policy Optimization）：强化学习训练方法"
+      ],
+      "reference_answer": "GRPO 全称 Group Relative Policy Optimization。文档中未对比 GRPO 与 PPO 的优劣。",
+      "key_points": [
+        "Group Relative Policy Optimization"
+      ],
+      "expected_behavior": "partial_answer_with_caveat",
+      "acceptable_refusal": false,
+      "difficulty": "medium",
+      "source_doc": "第十一章 Agentic-RL.md",
+      "tags": ["partial", "rl", "comparison"],
+      "unsupported_subquestion": "与 PPO 的优势对比"
+    },
+
+    {
+      "id": "us-001",
+      "question": "DeepSearch Agent 的分布式部署架构是怎样的？如何配置 Kubernetes 集群？",
+      "case_type": "unsupported",
+      "gold_evidence_ids": [],
+      "gold_evidence_texts": [],
+      "reference_answer": "",
+      "key_points": [],
+      "expected_behavior": "refuse_or_state_unknown",
+      "acceptable_refusal": true,
+      "difficulty": "easy",
+      "source_doc": null,
+      "tags": ["unsupported", "out-of-scope", "infrastructure"]
+    },
+    {
+      "id": "us-002",
+      "question": "LangChain 最新版本中 LCEL 的语法规范是什么？",
+      "case_type": "unsupported",
+      "gold_evidence_ids": [],
+      "gold_evidence_texts": [],
+      "reference_answer": "",
+      "key_points": [],
+      "expected_behavior": "refuse_or_state_unknown",
+      "acceptable_refusal": true,
+      "difficulty": "easy",
+      "source_doc": null,
+      "tags": ["unsupported", "out-of-scope", "external-framework"]
+    },
+    {
+      "id": "us-003",
+      "question": "如何用 Rust 重写 HelloAgents 框架的核心模块？",
+      "case_type": "unsupported",
+      "gold_evidence_ids": [],
+      "gold_evidence_texts": [],
+      "reference_answer": "",
+      "key_points": [],
+      "expected_behavior": "refuse_or_state_unknown",
+      "acceptable_refusal": true,
+      "difficulty": "easy",
+      "source_doc": null,
+      "tags": ["unsupported", "out-of-scope", "language-rewrite"]
+    },
+    {
+      "id": "us-004",
+      "question": "GPT-5 的架构设计和训练参数是什么？",
+      "case_type": "unsupported",
+      "gold_evidence_ids": [],
+      "gold_evidence_texts": [],
+      "reference_answer": "",
+      "key_points": [],
+      "expected_behavior": "refuse_or_state_unknown",
+      "acceptable_refusal": true,
+      "difficulty": "easy",
+      "source_doc": null,
+      "tags": ["unsupported", "out-of-scope", "unreleased"]
+    },
+
+    {
+      "id": "nc-001",
+      "question": "Reflection 范式的三步循环是什么？",
+      "case_type": "noisy_context",
+      "gold_evidence_ids": ["ch04-reflection"],
+      "gold_evidence_texts": [
+        "Reflection 三步循环：执行（Execution）→ 反思（Reflection）→ 优化（Refinement）"
+      ],
+      "noise_texts": [
+        "ReAct 工作流程：Thought -> Action -> Observation 循环",
+        "Plan-and-Solve 包含两个核心阶段：规划阶段和执行阶段",
+        "Kafka is designed for high-throughput append-only log processing",
+        "Redis can be used as short-term memory for agent systems"
+      ],
+      "reference_answer": "执行、反思、优化",
+      "key_points": [
+        "执行",
+        "反思",
+        "优化"
+      ],
+      "expected_behavior": "answer_correctly_ignoring_noise",
+      "acceptable_refusal": false,
+      "difficulty": "medium",
+      "source_doc": "第四章 智能体经典范式构建.md",
+      "tags": ["noise-resistance", "agent-paradigm"]
+    },
+    {
+      "id": "nc-002",
+      "question": "人类工作记忆的容量限制是多少？",
+      "case_type": "noisy_context",
+      "gold_evidence_ids": ["ch08-working-memory"],
+      "gold_evidence_texts": [
+        "工作记忆（Working Memory）：持续时间短（15-30秒），容量有限（7±2个项目）"
+      ],
+      "noise_texts": [
+        "感觉记忆（Sensory Memory）：持续时间极短（0.5-3秒），容量巨大",
+        "WorkingMemory：10条消息容量，120分钟TTL（短期记忆）",
+        "Redis 存储智能体记忆时，通常保存三类数据",
+        "LSTM 中遗忘门用于决定丢弃哪些信息"
+      ],
+      "reference_answer": "7±2个项目",
+      "key_points": [
+        "7±2"
+      ],
+      "expected_behavior": "answer_correctly_ignoring_noise",
+      "acceptable_refusal": false,
+      "difficulty": "hard",
+      "source_doc": "第八章 记忆与检索.md",
+      "tags": ["noise-resistance", "memory", "confusing-context"]
+    },
+    {
+      "id": "nc-003",
+      "question": "BFCL 评测基准的四个类别是什么？",
+      "case_type": "noisy_context",
+      "gold_evidence_ids": ["ch12-bfcl"],
+      "gold_evidence_texts": [
+        "BFCL 四个评测类别：Simple（单函数调用）、Multiple（多函数调用）、Parallel（并发调用）、Irrelevance（判断是否需要调用）"
+      ],
+      "noise_texts": [
+        "GAIA：466个真实世界问题，分3个难度级别",
+        "AgentBench 覆盖8个领域任务",
+        "GSM8K 数据集包含8500道数学问题"
+      ],
+      "reference_answer": "Simple、Multiple、Parallel、Irrelevance",
+      "key_points": [
+        "Simple",
+        "Multiple",
+        "Parallel",
+        "Irrelevance"
+      ],
+      "expected_behavior": "answer_correctly_ignoring_noise",
+      "acceptable_refusal": false,
+      "difficulty": "medium",
+      "source_doc": "第十二章 智能体性能评估.md",
+      "tags": ["noise-resistance", "evaluation", "confusing-context"]
+    },
+    {
+      "id": "nc-004",
+      "question": "MCP 的设计哲学核心理念是什么？",
+      "case_type": "noisy_context",
+      "gold_evidence_ids": ["ch10-mcp-philosophy"],
+      "gold_evidence_texts": [
+        "MCP 的设计哲学是\u201c上下文共享\u201d"
+      ],
+      "noise_texts": [
+        "A2A（Agent-to-Agent Protocol）协议由 Google 团队提出",
+        "CAMEL 的设计哲学是\u201c轻框架，重提示词\u201d",
+        "LangGraph 的设计哲学是\u201c状态机 + 有向图建模\u201d",
+        "AutoGen 设计哲学：\"对话驱动协作\""
+      ],
+      "reference_answer": "上下文共享",
+      "key_points": [
+        "上下文共享"
+      ],
+      "expected_behavior": "answer_correctly_ignoring_noise",
+      "acceptable_refusal": false,
+      "difficulty": "hard",
+      "source_doc": "第十章 智能体通信协议.md",
+      "tags": ["noise-resistance", "protocol", "confusing-philosophies"]
+    }
+  ]
+}

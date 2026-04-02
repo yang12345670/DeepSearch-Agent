@@ -188,7 +188,7 @@ class ShortTermMemory:
         Returns:
             Formatted text ready for injection into LLM prompt.
         """
-        sections: List[str] = []
+        sections: List[str] = [f"当前会话: {session_id}"]
 
         # 1. Conversation history
         if include_history:

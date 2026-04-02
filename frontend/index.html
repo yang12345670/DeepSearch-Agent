@@ -121,21 +121,43 @@
         white-space: nowrap;
       }
 
-      .session-item .session-delete {
+      .session-item .session-actions {
         display: none;
-        font-size: 14px;
-        color: var(--muted);
-        cursor: pointer;
-        padding: 0 4px;
+        align-items: center;
+        gap: 2px;
         flex-shrink: 0;
       }
 
-      .session-item:hover .session-delete {
-        display: block;
+      .session-item:hover .session-actions {
+        display: flex;
+      }
+
+      .session-item .session-rename,
+      .session-item .session-delete {
+        font-size: 13px;
+        color: var(--muted);
+        cursor: pointer;
+        padding: 0 3px;
+        line-height: 1;
+      }
+
+      .session-item .session-rename:hover {
+        color: var(--user);
       }
 
       .session-item .session-delete:hover {
         color: #dc2626;
+      }
+
+      .session-item .session-title-input {
+        flex: 1;
+        font-size: 13px;
+        padding: 1px 4px;
+        border: 1px solid var(--user);
+        border-radius: 4px;
+        outline: none;
+        font-family: inherit;
+        min-width: 0;
       }
 
       /* ---- Main column ---- */
@@ -797,36 +819,93 @@
           groups[label].forEach(function (s) {
             var item = document.createElement("div");
             item.className = "session-item" + (s.session_id === activeId ? " active" : "");
-            item.innerHTML = '<span class="session-title">' + (s.title || "New Chat") + "</span>" + '<span class="session-delete" data-id="' + s.session_id + '">&times;</span>';
+            item.innerHTML =
+              '<span class="session-title">' + (s.title || "New Chat") + "</span>" +
+              '<span class="session-actions">' +
+                '<span class="session-rename" data-id="' + s.session_id + '" title="Rename">&#9998;</span>' +
+                '<span class="session-delete" data-id="' + s.session_id + '" title="Delete">&times;</span>' +
+              "</span>";
             item.addEventListener("click", function (e) {
               if (e.target.classList.contains("session-delete")) return;
+              if (e.target.classList.contains("session-rename")) return;
               switchSession(s.session_id);
             });
             item.querySelector(".session-delete").addEventListener("click", function () {
               deleteSession(s.session_id);
+            });
+            item.querySelector(".session-rename").addEventListener("click", function () {
+              startRename(item, s);
             });
             sessionListEl.appendChild(item);
           });
         });
       }
 
-      async function loadSessions() {
+      function startRename(itemEl, session) {
+        var titleSpan = itemEl.querySelector(".session-title");
+        var actionsSpan = itemEl.querySelector(".session-actions");
+        var oldTitle = titleSpan.textContent;
+
+        // Replace title span with input
+        var input = document.createElement("input");
+        input.type = "text";
+        input.className = "session-title-input";
+        input.value = oldTitle;
+        titleSpan.style.display = "none";
+        actionsSpan.style.display = "none";
+        itemEl.insertBefore(input, titleSpan);
+        input.focus();
+        input.select();
+
+        function commitRename() {
+          var newTitle = input.value.trim();
+          if (!newTitle) newTitle = oldTitle;
+          input.remove();
+          titleSpan.textContent = newTitle;
+          titleSpan.style.display = "";
+          actionsSpan.style.display = "";
+          session.title = newTitle;
+          // Save to backend
+          fetch(API_BASE + "/chat/sessions/" + session.session_id, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ title: newTitle }),
+          }).catch(function (err) {
+            console.error("rename failed:", err);
+          });
+        }
+
+        input.addEventListener("blur", commitRename);
+        input.addEventListener("keydown", function (e) {
+          if (e.key === "Enter") { input.blur(); }
+          if (e.key === "Escape") { input.value = oldTitle; input.blur(); }
+        });
+      }
+
+      async function loadSessions(opts) {
+        var skipHistory = (opts && opts.skipHistory) || false;
         try {
           var resp = await fetch(API_BASE + "/chat/sessions");
           var data = await resp.json();
           var sessions = data.sessions || [];
           if (sessions.length === 0 || !SESSION_ID) {
             await createNewSession();
-            return loadSessions();
+            return loadSessions(opts);
           }
-          // If current session not in list, select first
+          // If current session not in list, it might be a new unsaved session —
+          // add a placeholder so the UI shows it, instead of silently switching away.
           var ids = sessions.map(function (s) { return s.session_id; });
           if (ids.indexOf(SESSION_ID) === -1) {
-            SESSION_ID = sessions[0].session_id;
-            localStorage.setItem("deepsearch_current_session", SESSION_ID);
+            sessions.unshift({
+              session_id: SESSION_ID,
+              title: "New Chat",
+              last_active: new Date().toISOString(),
+            });
           }
           renderSessionList(sessions, SESSION_ID);
-          await loadHistory(SESSION_ID);
+          if (!skipHistory) {
+            await loadHistory(SESSION_ID);
+          }
         } catch (err) {
           console.error("loadSessions failed:", err);
           // Offline fallback: create local session
@@ -873,21 +952,66 @@
       }
 
       async function deleteSession(sid) {
+        if (!confirm("Delete this conversation?")) return;
         try {
           await fetch(API_BASE + "/chat/sessions/" + sid, { method: "DELETE" });
         } catch (err) {
           console.error("deleteSession failed:", err);
         }
+        // Remove the item from sidebar immediately
+        sessionListEl.querySelectorAll(".session-item").forEach(function (el) {
+          var delBtn = el.querySelector(".session-delete");
+          if (delBtn && delBtn.dataset.id === sid) {
+            // Also remove preceding group label if this was the only item in the group
+            var prev = el.previousElementSibling;
+            var next = el.nextElementSibling;
+            var isLastInGroup = (!next || next.classList.contains("session-group-label"));
+            el.remove();
+            if (prev && prev.classList.contains("session-group-label") && isLastInGroup) {
+              prev.remove();
+            }
+          }
+        });
         if (sid === SESSION_ID) {
-          SESSION_ID = "";
-          localStorage.removeItem("deepsearch_current_session");
+          // Switch to another session or create a new one
+          var firstItem = sessionListEl.querySelector(".session-item .session-delete");
+          if (firstItem) {
+            switchSession(firstItem.dataset.id);
+          } else {
+            SESSION_ID = "";
+            localStorage.removeItem("deepsearch_current_session");
+            chatEl.innerHTML = "";
+            await createNewSession();
+            await loadSessions();
+          }
         }
-        await loadSessions();
       }
 
       newChatBtn.addEventListener("click", async function () {
         await createNewSession();
-        await loadSessions();
+        // Don't call loadSessions() here — the new session doesn't exist
+        // in Supabase yet (created on first message), so loadSessions would
+        // overwrite SESSION_ID with an old session.
+        // Instead, just prepend the new session in the sidebar UI.
+        var placeholder = {
+          session_id: SESSION_ID,
+          title: "New Chat",
+          last_active: new Date().toISOString(),
+        };
+        // Collect existing sessions from sidebar
+        var existingItems = sessionListEl.querySelectorAll(".session-item");
+        var existingSessions = [];
+        existingItems.forEach(function (el) {
+          var delBtn = el.querySelector(".session-delete");
+          if (delBtn) {
+            existingSessions.push({
+              session_id: delBtn.dataset.id,
+              title: el.querySelector(".session-title").textContent,
+              last_active: "",
+            });
+          }
+        });
+        renderSessionList([placeholder].concat(existingSessions), SESSION_ID);
       });
 
       const chatEl = document.getElementById("chat");
@@ -1197,8 +1321,8 @@
           const data = await response.json();
           data._elapsed = elapsedSec;
           addAIMessage(data);
-          // Refresh sidebar to show updated title/preview
-          loadSessions();
+          // Refresh sidebar to show updated title/preview (but don't reload chat area)
+          loadSessions({ skipHistory: true });
         } catch (err) {
           stopThinking(startTime);
           console.error("chat request failed:", err);

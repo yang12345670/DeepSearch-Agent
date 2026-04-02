@@ -76,6 +76,8 @@ class AgentPipeline:
             include_traces=True,
             include_task_state=True,
         )
+        if not short_term_context.strip() and session_id != "default":
+            logger.warning("Short-term context empty for session %s — Redis may be down", session_id)
 
         # 3. Single-pass RAG answer
         result = rag_answer(

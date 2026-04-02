@@ -178,5 +178,234 @@
     "answer": "Python 3.10+",
     "evidence": "pip install \"hello-agents==0.1.1\"  # Requires Python 3.10+",
     "keywords": ["HelloAgents", "Python 3.10", "版本要求"]
+  },
+
+  {
+    "question": "智能体的四个基本要素是什么？",
+    "answer": "环境、传感器、执行器、自主性",
+    "evidence": "智能体具备四个基本要素：环境（Environment）、传感器（Sensors）、执行器（Actuators）、自主性（Autonomy）",
+    "keywords": ["智能体", "环境", "传感器", "执行器", "自主性"]
+  },
+  {
+    "question": "智能体循环（Agent Loop）的四个步骤是什么？",
+    "answer": "感知、思考、行动、观察",
+    "evidence": "感知 (Perception) → 思考 (Thought) → 行动 (Action) → 观察 (Observation)",
+    "keywords": ["Agent Loop", "感知", "思考", "行动", "观察"]
+  },
+  {
+    "question": "物理符号系统假说（PSSH）是由谁在哪一年提出的？",
+    "answer": "艾伦·纽厄尔和赫伯特·西蒙于1976年提出",
+    "evidence": "物理符号系统假说（Physical Symbol System Hypothesis, PSSH）1976年由艾伦·纽厄尔（Allen Newell）和赫伯特·西蒙（Herbert A. Simon）提出",
+    "keywords": ["PSSH", "物理符号系统假说", "纽厄尔", "西蒙", "1976"]
+  },
+  {
+    "question": "MYCIN系统包含多少条 IF-THEN 规则？",
+    "answer": "600条",
+    "evidence": "MYCIN系统包含600条 IF-THEN 规则",
+    "keywords": ["MYCIN", "600", "IF-THEN", "专家系统"]
+  },
+  {
+    "question": "ELIZA 是由谁在哪一年开发的？",
+    "answer": "约瑟夫·魏泽鲍姆于1966年开发",
+    "evidence": "ELIZA由约瑟夫·魏泽鲍姆（Joseph Weizenbaum）于1966年开发",
+    "keywords": ["ELIZA", "魏泽鲍姆", "1966"]
+  },
+  {
+    "question": "马文·明斯基的《心智社会》一书提出的核心观点是什么？",
+    "answer": "智能是由大量简单的、无心的心智过程协同工作产生的涌现现象",
+    "evidence": "智能体（简单的、无心的心智过程）通过机构（Agency）协同工作，复杂行为从简单交互中自发产生，即涌现（Emergence）",
+    "keywords": ["心智社会", "明斯基", "涌现", "Emergence"]
+  },
+  {
+    "question": "强化学习的核心要素包括哪些？",
+    "answer": "智能体、环境、状态、行动、奖励",
+    "evidence": "强化学习核心要素：智能体（Agent）、环境（Environment）、状态(S)、行动(A)、奖励(R)",
+    "keywords": ["强化学习", "状态", "行动", "奖励", "环境"]
+  },
+  {
+    "question": "ReAct 范式是由谁在哪一年提出的？",
+    "answer": "Shunyu Yao于2022年提出",
+    "evidence": "ReAct（Reasoning and Acting）由 Shunyu Yao 于2022年提出",
+    "keywords": ["ReAct", "Reasoning and Acting", "Shunyu Yao", "2022"]
+  },
+  {
+    "question": "ReAct 范式的工作流程是什么循环？",
+    "answer": "Thought → Action → Observation 循环",
+    "evidence": "ReAct 工作流程：Thought -> Action -> Observation 循环",
+    "keywords": ["ReAct", "Thought", "Action", "Observation"]
+  },
+  {
+    "question": "Plan-and-Solve 范式包含哪两个核心阶段？",
+    "answer": "规划阶段和执行阶段",
+    "evidence": "Plan-and-Solve 包含两个核心阶段：规划阶段（Planning Phase）分解问题制定计划，执行阶段（Solving Phase）严格按计划执行",
+    "keywords": ["Plan-and-Solve", "规划阶段", "执行阶段"]
+  },
+  {
+    "question": "Reflection 范式的三步循环是什么？",
+    "answer": "执行、反思、优化",
+    "evidence": "Reflection 三步循环：执行（Execution）→ 反思（Reflection）→ 优化（Refinement）",
+    "keywords": ["Reflection", "执行", "反思", "优化", "Reflexion"]
+  },
+  {
+    "question": "Coze（扣子）平台是否支持 MCP 协议？",
+    "answer": "不支持",
+    "evidence": "Coze 平台不支持 MCP 协议",
+    "keywords": ["Coze", "扣子", "MCP", "不支持"]
+  },
+  {
+    "question": "Dify 平台的核心定位是什么？",
+    "answer": "开源综合 LLM 应用开发和运维平台",
+    "evidence": "Dify 是一个开源综合 LLM 应用开发和运维平台",
+    "keywords": ["Dify", "开源", "LLM", "应用开发"]
+  },
+  {
+    "question": "Dify 平台支持多少个以上的开源和商用模型？",
+    "answer": "100+",
+    "evidence": "Dify 支持100+开源和商用模型，包括 GPT、DeepSeek、Llama",
+    "keywords": ["Dify", "100+", "模型兼容"]
+  },
+  {
+    "question": "n8n 中的 Node（节点）是什么？",
+    "answer": "最小的执行单元，具有特定功能",
+    "evidence": "Node（节点）：最小执行单元，具有特定功能",
+    "keywords": ["n8n", "Node", "节点", "执行单元"]
+  },
+  {
+    "question": "AutoGen 的设计哲学是什么？",
+    "answer": "对话驱动协作",
+    "evidence": "AutoGen 设计哲学：\"对话驱动协作\"（Dialogue-driven collaboration）",
+    "keywords": ["AutoGen", "对话驱动", "协作"]
+  },
+  {
+    "question": "AgentScope 是由哪个团队开发的？",
+    "answer": "阿里巴巴达摩院",
+    "evidence": "AgentScope 由阿里巴巴达摩院（Alibaba DAMO Academy）开发",
+    "keywords": ["AgentScope", "阿里巴巴", "达摩院"]
+  },
+  {
+    "question": "CAMEL 框架中的两个核心角色分别是什么？",
+    "answer": "AI User（需求提供者）和 AI Assistant（执行者）",
+    "evidence": "CAMEL 角色扮演：AI User 是需求提供者、任务发起者；AI Assistant 是执行者、方案提供者",
+    "keywords": ["CAMEL", "AI User", "AI Assistant", "角色扮演"]
+  },
+  {
+    "question": "LangGraph 的三个核心组件是什么？",
+    "answer": "State（状态）、Nodes（节点）、Edges（边）",
+    "evidence": "LangGraph 核心组件：State（中央共享数据结构）、Nodes（Python函数）、Edges（连接节点定义工作流方向）",
+    "keywords": ["LangGraph", "State", "Nodes", "Edges"]
+  },
+  {
+    "question": "HelloAgents 框架的核心设计原则中，统一的抽象是什么？",
+    "answer": "除核心 Agent 外，一切皆为 Tool",
+    "evidence": "统一\"工具\"抽象：除核心 Agent 外，一切皆为 Tool",
+    "keywords": ["HelloAgents", "Tool", "统一抽象"]
+  },
+  {
+    "question": "GUI Agent 与传统 RPA 的核心区别是什么？",
+    "answer": "GUI Agent 基于视觉理解，RPA 基于固定选择器",
+    "evidence": "RPA 基于固定选择器，UI变化就会失效（\"脆性自动化\"）；GUI Agent 基于视觉理解，具有语义灵活性",
+    "keywords": ["GUI Agent", "RPA", "视觉理解", "选择器"]
+  },
+  {
+    "question": "GUI Agent 在真实场景中的成功率大约是多少？",
+    "answer": "40-50%",
+    "evidence": "GUI Agent 准确率瓶颈：真实场景中成功率约40-50%",
+    "keywords": ["GUI Agent", "成功率", "40-50%"]
+  },
+  {
+    "question": "GUI Agent 的核心架构分为哪三个阶段？",
+    "answer": "感知、推理、执行",
+    "evidence": "GUI Agent 核心架构：感知（Perception）→ 推理（Reasoning）→ 执行（Action）",
+    "keywords": ["GUI Agent", "感知", "推理", "执行"]
+  },
+  {
+    "question": "Agentic RL 中，传统监督学习（SL）的主要局限是什么？",
+    "answer": "数据质量瓶颈、缺乏探索能力、难以长期优化",
+    "evidence": "传统SL局限：数据质量瓶颈、没有探索能力、长期优化困难",
+    "keywords": ["Agentic RL", "监督学习", "局限"]
+  },
+  {
+    "question": "GRPO 的全称是什么？",
+    "answer": "Group Relative Policy Optimization",
+    "evidence": "GRPO（Group Relative Policy Optimization）：强化学习训练方法",
+    "keywords": ["GRPO", "Group Relative Policy Optimization", "强化学习"]
+  },
+  {
+    "question": "GSM8K 数据集包含多少道数学问题？",
+    "answer": "8500道",
+    "evidence": "GSM8K 数据集包含8500道数学问题",
+    "keywords": ["GSM8K", "8500", "数学问题"]
+  },
+  {
+    "question": "BFCL 评测基准的四个评测类别是什么？",
+    "answer": "Simple、Multiple、Parallel、Irrelevance",
+    "evidence": "BFCL 四个评测类别：Simple（单函数调用）、Multiple（多函数调用）、Parallel（并发调用）、Irrelevance（判断是否需要调用）",
+    "keywords": ["BFCL", "Simple", "Multiple", "Parallel", "Irrelevance"]
+  },
+  {
+    "question": "GAIA 基准测试包含多少个真实世界问题？",
+    "answer": "466个",
+    "evidence": "GAIA：466个真实世界问题，分3个难度级别",
+    "keywords": ["GAIA", "466", "真实世界"]
+  },
+  {
+    "question": "智能旅行助手使用了哪四个专门的 Agent？",
+    "answer": "AttractionSearchAgent、WeatherQueryAgent、HotelAgent、PlannerAgent",
+    "evidence": "四个专门Agent：AttractionSearchAgent（景点搜索）、WeatherQueryAgent（天气查询）、HotelAgent（酒店搜索）、PlannerAgent（行程规划）",
+    "keywords": ["旅行助手", "AttractionSearchAgent", "WeatherQueryAgent", "HotelAgent", "PlannerAgent"]
+  },
+  {
+    "question": "赛博小镇中 NPC 的工作记忆（WorkingMemory）容量和过期时间分别是多少？",
+    "answer": "10条消息，120分钟过期",
+    "evidence": "WorkingMemory：10条消息容量，120分钟TTL（短期记忆）",
+    "keywords": ["赛博小镇", "WorkingMemory", "10条", "120分钟"]
+  },
+  {
+    "question": "赛博小镇的好感度系统分为哪五个等级？",
+    "answer": "陌生人、熟悉、友好、亲密、挚友",
+    "evidence": "好感度五个等级：陌生人（0-20）、熟悉（21-40）、友好（41-60）、亲密（61-80）、挚友（81-100）",
+    "keywords": ["赛博小镇", "好感度", "陌生人", "熟悉", "友好", "亲密", "挚友"]
+  },
+  {
+    "question": "赛博小镇使用什么游戏引擎开发前端？",
+    "answer": "Godot 4.5",
+    "evidence": "前端：Godot 4.5 游戏引擎",
+    "keywords": ["赛博小镇", "Godot", "游戏引擎"]
+  },
+  {
+    "question": "Agent 应用开发中，\"Less is More\" 的核心教训是什么？",
+    "answer": "过度工程化会导致系统在复杂循环中失败，应从最简可行链路开始",
+    "evidence": "初始错误：过度工程化使用多种技术，结果系统在复杂循环中失败。解决方案：简化到最小可行链路",
+    "keywords": ["Less is More", "过度工程化", "最简可行"]
+  },
+  {
+    "question": "专家系统中，正向链（Forward Chaining）和反向链（Backward Chaining）分别是什么驱动方式？",
+    "answer": "正向链是数据驱动，反向链是目标驱动",
+    "evidence": "正向链（Forward Chaining）- 数据驱动；反向链（Backward Chaining）- 目标驱动",
+    "keywords": ["正向链", "反向链", "数据驱动", "目标驱动", "专家系统"]
+  },
+  {
+    "question": "神经符号主义 AI（Neuro-Symbolic AI）的特点是什么？",
+    "answer": "结合符号主义的可解释性与亚符号主义的学习能力",
+    "evidence": "神经符号主义AI（Neuro-Symbolic AI）结合符号主义的可解释性与亚符号主义（深度学习）的学习能力",
+    "keywords": ["神经符号主义", "Neuro-Symbolic AI", "可解释性", "学习能力"]
+  },
+  {
+    "question": "Letta 公司于何时发布了 AI Agent 技术栈？",
+    "answer": "2024年11月",
+    "evidence": "AI Agent技术栈由Letta公司于2024年11月发布",
+    "keywords": ["Letta", "AI Agent技术栈", "2024年11月"]
+  },
+  {
+    "question": "Dify 平台使用什么加密标准来保障企业级安全？",
+    "answer": "AES-256",
+    "evidence": "Dify 企业级安全：AES-256加密、RBAC权限控制、审计日志",
+    "keywords": ["Dify", "AES-256", "企业级安全"]
+  },
+  {
+    "question": "赛博小镇的批量生成优化中，NPC 背景对话每隔多久更新一次？",
+    "answer": "5分钟",
+    "evidence": "批量生成频率：每5分钟更新一次",
+    "keywords": ["赛博小镇", "批量生成", "5分钟"]
   }
 ]

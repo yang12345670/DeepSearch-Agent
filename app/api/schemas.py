@@ -16,6 +16,10 @@ class ChatRequest(BaseModel):
         default=None,
         description="Session id for short-term memory isolation.",
     )
+    user_id: Optional[str] = Field(
+        default=None,
+        description="User id for long-term memory isolation.",
+    )
 
 
 class ChatResponse(BaseModel):

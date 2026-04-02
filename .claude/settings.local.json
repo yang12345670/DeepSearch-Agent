@@ -7,7 +7,10 @@
       "Bash(redis-cli ping:*)",
       "Bash(cd:*)",
       "Bash(pip install:*)",
-      "Bash(python -X utf8 -c \":*)"
+      "Bash(python -X utf8 -c \":*)",
+      "Bash(wc -l \"C:\\\\Users\\\\13634\\\\Desktop\\\\DeepSearch-Agent-main/data/docs\"/*.md)",
+      "Bash(grep -E \"\\\\.\\(json|jsonl|csv|txt|md\\)$\")",
+      "Bash(ls -lh *.md)"
     ]
   }
 }

@@ -46,7 +46,13 @@ def create_session(session_id: str, title: str = "New Chat") -> Optional[Dict]:
     if sb is None:
         return None
     try:
-        r = sb.table("chat_sessions").upsert({
+        # Check if session already exists — don't overwrite title/preview
+        existing = sb.table("chat_sessions").select("session_id").eq(
+            "session_id", session_id
+        ).execute()
+        if existing.data:
+            return existing.data[0]
+        r = sb.table("chat_sessions").insert({
             "session_id": session_id,
             "title": title,
             "preview": "",
