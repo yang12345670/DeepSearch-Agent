@@ -2,9 +2,15 @@
 """
 Retrieval & Answer Evaluation Script for DeepSearch Agent.
 
-Evaluates two dimensions:
-  (A) Retrieval Hit Rate — does the gold evidence appear in retrieved chunks?
-  (B) Answer Accuracy    — does the model answer contain the ground truth?
+Evaluates three dimensions:
+  (A) Retrieval Hit Rate — does the gold evidence appear in retrieved chunks? (Recall)
+  (B) Retrieval Precision — what fraction of retrieved chunks are actually relevant?
+  (C) Answer Accuracy     — does the model answer contain the ground truth?
+
+Precision measurement:
+  Each retrieved chunk is judged relevant if it shares a substantial text overlap
+  with any gold evidence string (answer + evidence + optional gold_chunks).
+  Overlap is measured by longest common substring ratio >= 0.3.
 
 Usage:
   # Start the server first:  python main.py
@@ -94,6 +100,105 @@ def answer_match(ground_truth: str, model_answer: str) -> bool:
 
 
 # ====================================================================
+# Precision Helpers
+# ====================================================================
+
+def _longest_common_substring_len(a: str, b: str) -> int:
+    """Return length of longest common substring between a and b.
+
+    Uses a space-optimized DP approach (two rows).
+    """
+    if not a or not b:
+        return 0
+    m, n = len(a), len(b)
+    # Keep the shorter string as columns for memory efficiency
+    if m < n:
+        a, b = b, a
+        m, n = n, m
+    prev = [0] * (n + 1)
+    best = 0
+    for i in range(1, m + 1):
+        curr = [0] * (n + 1)
+        for j in range(1, n + 1):
+            if a[i - 1] == b[j - 1]:
+                curr[j] = prev[j - 1] + 1
+                if curr[j] > best:
+                    best = curr[j]
+        prev = curr
+    return best
+
+
+def chunk_is_relevant(
+    chunk_text: str,
+    gold_strings: List[str],
+    *,
+    overlap_ratio: float = 0.3,
+) -> bool:
+    """Judge whether a retrieved chunk is relevant to the query.
+
+    A chunk is relevant if it shares a long common substring with any gold
+    string, where the overlap ratio = LCS_len / len(gold_string) >= threshold.
+
+    Args:
+        chunk_text: the retrieved chunk text.
+        gold_strings: list of gold reference strings (answer, evidence, gold_chunks).
+        overlap_ratio: minimum LCS ratio to consider relevant.
+    """
+    chunk_norm = normalize(chunk_text)
+    if not chunk_norm:
+        return False
+    for gold in gold_strings:
+        gold_norm = normalize(gold)
+        if not gold_norm:
+            continue
+        # Fast path: substring containment
+        if gold_norm in chunk_norm:
+            return True
+        lcs_len = _longest_common_substring_len(chunk_norm, gold_norm)
+        if lcs_len / len(gold_norm) >= overlap_ratio:
+            return True
+    return False
+
+
+def precision_at_k(
+    context_list: List[str],
+    gold_strings: List[str],
+    k: int,
+    *,
+    overlap_ratio: float = 0.3,
+) -> float:
+    """Compute Precision@k: fraction of top-k chunks that are relevant.
+
+    Returns 0.0 if no chunks retrieved.
+    """
+    top_k_chunks = context_list[:k]
+    if not top_k_chunks:
+        return 0.0
+    relevant = sum(
+        1 for c in top_k_chunks
+        if chunk_is_relevant(c, gold_strings, overlap_ratio=overlap_ratio)
+    )
+    return relevant / len(top_k_chunks)
+
+
+def build_gold_strings(item: Dict[str, Any]) -> List[str]:
+    """Build the list of gold reference strings for precision evaluation.
+
+    Sources (in order): answer, evidence, gold_chunks (optional field).
+    All non-empty strings are included.
+    """
+    golds: List[str] = []
+    for key in ("answer", "evidence"):
+        val = item.get(key, "")
+        if val and val.strip():
+            golds.append(val.strip())
+    for chunk in item.get("gold_chunks", []):
+        if chunk and chunk.strip():
+            golds.append(chunk.strip())
+    return golds
+
+
+# ====================================================================
 # Result Structures
 # ====================================================================
 
@@ -110,6 +215,9 @@ class SampleResult:
     hit_at_3: bool = False
     hit_at_5: bool = False
     answer_correct: bool = False
+    precision_at_3: float = 0.0
+    precision_at_5: float = 0.0
+    chunk_relevance: List[bool] = field(default_factory=list)  # per-chunk relevance
     error: Optional[str] = None
 
 
@@ -139,6 +247,31 @@ class EvalMetrics:
     @property
     def accuracy(self) -> float:
         return self.answer_correct / self.total if self.total else 0.0
+
+    @property
+    def avg_precision_3(self) -> float:
+        valid = [r.precision_at_3 for r in self.results if not r.error]
+        return sum(valid) / len(valid) if valid else 0.0
+
+    @property
+    def avg_precision_5(self) -> float:
+        valid = [r.precision_at_5 for r in self.results if not r.error]
+        return sum(valid) / len(valid) if valid else 0.0
+
+    @property
+    def avg_f1_5(self) -> float:
+        """Average F1@5 = harmonic mean of Hit@5 (recall proxy) and Precision@5."""
+        f1s = []
+        for r in self.results:
+            if r.error:
+                continue
+            recall = 1.0 if r.hit_at_5 else 0.0
+            p = r.precision_at_5
+            if recall + p > 0:
+                f1s.append(2 * recall * p / (recall + p))
+            else:
+                f1s.append(0.0)
+        return sum(f1s) / len(f1s) if f1s else 0.0
 
 
 # ====================================================================
@@ -172,6 +305,15 @@ def run_evaluation(
             h5 = retrieval_hit_at_k(ground_truth, retrieved, 5)
             ac = answer_match(ground_truth, model_answer)
 
+            # Precision: judge each chunk's relevance
+            golds = build_gold_strings(item)
+            chunk_rel = [
+                chunk_is_relevant(c, golds)
+                for c in retrieved
+            ]
+            p3 = precision_at_k(retrieved, golds, 3)
+            p5 = precision_at_k(retrieved, golds, 5)
+
             if h1:
                 metrics.hit_at_1 += 1
             if h3:
@@ -193,12 +335,16 @@ def run_evaluation(
                 hit_at_3=h3,
                 hit_at_5=h5,
                 answer_correct=ac,
+                precision_at_3=p3,
+                precision_at_5=p5,
+                chunk_relevance=chunk_rel,
             )
 
             status = []
             status.append("H1" if h1 else "--")
             status.append("H3" if h3 else "--")
             status.append("H5" if h5 else "--")
+            status.append(f"P@5={p5:.0%}")
             status.append("AC" if ac else "--")
             print(" | ".join(status))
 
@@ -238,13 +384,18 @@ def print_report(metrics: EvalMetrics, *, top_k: int) -> None:
     print(f"  Time:              {metrics.elapsed_sec:.1f}s "
           f"({metrics.elapsed_sec / max(metrics.total, 1):.1f}s/sample)")
     print("-" * w)
-    print("  RETRIEVAL HIT RATE")
+    print("  RETRIEVAL HIT RATE (Recall)")
     print(f"    Hit@1:           {metrics.hit_at_1:3d}/{metrics.total}  "
           f"= {metrics.hit_rate_1:.1%}")
     print(f"    Hit@3:           {metrics.hit_at_3:3d}/{metrics.total}  "
           f"= {metrics.hit_rate_3:.1%}")
     print(f"    Hit@5:           {metrics.hit_at_5:3d}/{metrics.total}  "
           f"= {metrics.hit_rate_5:.1%}")
+    print("-" * w)
+    print("  RETRIEVAL PRECISION")
+    print(f"    Avg P@3:         {metrics.avg_precision_3:.1%}")
+    print(f"    Avg P@5:         {metrics.avg_precision_5:.1%}")
+    print(f"    Avg F1@5:        {metrics.avg_f1_5:.1%}")
     print("-" * w)
     print("  ANSWER ACCURACY")
     print(f"    Correct:         {metrics.answer_correct:3d}/{metrics.total}  "
@@ -255,6 +406,7 @@ def print_report(metrics: EvalMetrics, *, top_k: int) -> None:
     retrieval_fails = [r for r in metrics.results if not r.hit_at_5 and not r.error]
     answer_fails = [r for r in metrics.results if not r.answer_correct and not r.error]
     error_cases = [r for r in metrics.results if r.error]
+    low_precision = [r for r in metrics.results if not r.error and r.precision_at_5 < 0.4]
 
     if retrieval_fails:
         print()
@@ -266,6 +418,19 @@ def print_report(metrics: EvalMetrics, *, top_k: int) -> None:
                 print(f"       Top-1 retrieved: {r.retrieved_context[0][:80]}")
             else:
                 print(f"       (no chunks retrieved)")
+            print()
+
+    if low_precision:
+        print(f"--- Low Precision Samples (P@5 < 40%, {len(low_precision)} samples) ---")
+        for r in low_precision[:10]:
+            n_chunks = len(r.retrieved_context)
+            n_rel = sum(r.chunk_relevance) if r.chunk_relevance else 0
+            print(f"  [{r.idx+1:02d}] Q: {r.question[:60]}")
+            print(f"       P@5={r.precision_at_5:.0%}  ({n_rel}/{n_chunks} relevant)")
+            for ci, ctx in enumerate(r.retrieved_context[:5]):
+                tag = "REL" if ci < len(r.chunk_relevance) and r.chunk_relevance[ci] else "IRR"
+                score_str = f"  score={r.retrieved_scores[ci]:.3f}" if ci < len(r.retrieved_scores) else ""
+                print(f"       [{ci+1}] {tag}{score_str}  {ctx[:70]}")
             print()
 
     if answer_fails:
@@ -294,6 +459,9 @@ def save_results(metrics: EvalMetrics, output_path: str) -> None:
             "hit_rate_1": round(metrics.hit_rate_1, 4),
             "hit_rate_3": round(metrics.hit_rate_3, 4),
             "hit_rate_5": round(metrics.hit_rate_5, 4),
+            "avg_precision_3": round(metrics.avg_precision_3, 4),
+            "avg_precision_5": round(metrics.avg_precision_5, 4),
+            "avg_f1_5": round(metrics.avg_f1_5, 4),
             "answer_correct": metrics.answer_correct,
             "answer_accuracy": round(metrics.accuracy, 4),
             "errors": metrics.errors,
@@ -312,6 +480,9 @@ def save_results(metrics: EvalMetrics, output_path: str) -> None:
                 "hit_at_3": r.hit_at_3,
                 "hit_at_5": r.hit_at_5,
                 "answer_correct": r.answer_correct,
+                "precision_at_3": round(r.precision_at_3, 4),
+                "precision_at_5": round(r.precision_at_5, 4),
+                "chunk_relevance": r.chunk_relevance,
                 "error": r.error,
             }
             for r in metrics.results
@@ -354,27 +525,30 @@ def generate_report_md(metrics: EvalMetrics, *, top_k: int, tag: str) -> str:
     lines.append("")
     lines.append("| Metric | Value |")
     lines.append("|--------|-------|")
-    lines.append(f"| Hit@1 | {metrics.hit_at_1}/{metrics.total} ({metrics.hit_rate_1:.1%}) |")
-    lines.append(f"| Hit@3 | {metrics.hit_at_3}/{metrics.total} ({metrics.hit_rate_3:.1%}) |")
-    lines.append(f"| Hit@5 | {metrics.hit_at_5}/{metrics.total} ({metrics.hit_rate_5:.1%}) |")
+    lines.append(f"| Hit@1 (Recall) | {metrics.hit_at_1}/{metrics.total} ({metrics.hit_rate_1:.1%}) |")
+    lines.append(f"| Hit@3 (Recall) | {metrics.hit_at_3}/{metrics.total} ({metrics.hit_rate_3:.1%}) |")
+    lines.append(f"| Hit@5 (Recall) | {metrics.hit_at_5}/{metrics.total} ({metrics.hit_rate_5:.1%}) |")
+    lines.append(f"| **Avg Precision@3** | **{metrics.avg_precision_3:.1%}** |")
+    lines.append(f"| **Avg Precision@5** | **{metrics.avg_precision_5:.1%}** |")
+    lines.append(f"| **Avg F1@5** | **{metrics.avg_f1_5:.1%}** |")
     lines.append(f"| Answer Accuracy | {metrics.answer_correct}/{metrics.total} ({metrics.accuracy:.1%}) |")
     lines.append("")
     lines.append("---")
     lines.append("")
     lines.append("## Per-sample Results")
     lines.append("")
-    lines.append("| # | Hit@1 | Hit@3 | Hit@5 | Ans | Question |")
-    lines.append("|---|-------|-------|-------|-----|----------|")
+    lines.append("| # | Hit@1 | Hit@3 | Hit@5 | P@3 | P@5 | Ans | Question |")
+    lines.append("|---|-------|-------|-------|-----|-----|-----|----------|")
 
     for r in metrics.results:
         if r.error:
-            lines.append(f"| {r.idx+1} | ERR | ERR | ERR | ERR | {r.question[:50]} |")
+            lines.append(f"| {r.idx+1} | ERR | ERR | ERR | ERR | ERR | ERR | {r.question[:50]} |")
         else:
             h1 = "Y" if r.hit_at_1 else "-"
             h3 = "Y" if r.hit_at_3 else "-"
             h5 = "Y" if r.hit_at_5 else "-"
             ac = "Y" if r.answer_correct else "-"
-            lines.append(f"| {r.idx+1} | {h1} | {h3} | {h5} | {ac} | {r.question[:50]} |")
+            lines.append(f"| {r.idx+1} | {h1} | {h3} | {h5} | {r.precision_at_3:.0%} | {r.precision_at_5:.0%} | {ac} | {r.question[:50]} |")
 
     # Retrieval misses
     retrieval_fails = [r for r in metrics.results if not r.hit_at_5 and not r.error]
@@ -391,6 +565,23 @@ def generate_report_md(metrics: EvalMetrics, *, top_k: int, tag: str) -> str:
                 lines.append(f"- Top-1 retrieved: `{r.retrieved_context[0][:100]}`")
             else:
                 lines.append(f"- (no chunks retrieved)")
+            lines.append("")
+
+    # Low precision cases
+    low_prec = [r for r in metrics.results if not r.error and r.precision_at_5 < 0.4]
+    if low_prec:
+        lines.append("---")
+        lines.append("")
+        lines.append(f"## Low Precision Samples (P@5 < 40%, {len(low_prec)} samples)")
+        lines.append("")
+        for r in low_prec[:15]:
+            n_rel = sum(r.chunk_relevance) if r.chunk_relevance else 0
+            lines.append(f"**[{r.idx+1}]** {r.question}")
+            lines.append(f"- P@5 = {r.precision_at_5:.0%} ({n_rel}/{len(r.retrieved_context)} relevant)")
+            for ci, ctx in enumerate(r.retrieved_context[:5]):
+                tag = "REL" if ci < len(r.chunk_relevance) and r.chunk_relevance[ci] else "IRR"
+                score_str = f" score={r.retrieved_scores[ci]:.3f}" if ci < len(r.retrieved_scores) else ""
+                lines.append(f"  - [{ci+1}] {tag}{score_str}: `{ctx[:80]}`")
             lines.append("")
 
     # Answer misses
@@ -429,6 +620,9 @@ def append_to_changelog(metrics: EvalMetrics, *, tag: str, report_path: str) -> 
         f"| Hit@1 | {metrics.hit_at_1}/{metrics.total} ({metrics.hit_rate_1:.1%}) |\n"
         f"| Hit@3 | {metrics.hit_at_3}/{metrics.total} ({metrics.hit_rate_3:.1%}) |\n"
         f"| Hit@5 | {metrics.hit_at_5}/{metrics.total} ({metrics.hit_rate_5:.1%}) |\n"
+        f"| Avg P@3 | {metrics.avg_precision_3:.1%} |\n"
+        f"| Avg P@5 | {metrics.avg_precision_5:.1%} |\n"
+        f"| Avg F1@5 | {metrics.avg_f1_5:.1%} |\n"
         f"| Answer Accuracy | {metrics.answer_correct}/{metrics.total} ({metrics.accuracy:.1%}) |\n\n"
         f"Full report: [{Path(report_path).name}]({report_path})\n"
     )

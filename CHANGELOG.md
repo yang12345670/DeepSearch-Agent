@@ -14,6 +14,180 @@ python scripts/eval_retrieval.py --tag <your-tag>
 
 ---
 
+## [2026-04-02] 实验：Chunk 大小调优 256 → 512（已回滚）
+
+### 实验目的
+
+当前 chunk_size=256 字符（中位数 244，约 40-50 个中文字），存在上下文碎片化问题：
+- fs-216 的四个 Agent 名称分散在多个 chunk 中，单个 chunk 信息不完整
+- 短 chunk 缺乏语境，reranker 难以准确判断相关性
+
+### 改动内容
+
+- `app/config.py` 新增 `CHUNK_SIZE` / `CHUNK_OVERLAP` 环境变量（默认 512/128）
+- `auto_index.py`、`ingest_docs.py`、`chunker.py`、`knowledge_base.py` 统一从 settings 读取
+- 重建索引：chunk 数从 5487 → 2460（-55%），中位数 244 → 490 字符
+
+### 评测结果
+
+| 指标 | v4 (chunk=256) | v6 (chunk=512) |
+|------|---------------|---------------|
+| **Avg Composite** | **0.84** | **0.81 ↓** |
+| 答案正确性 | 82.0% | 80.0% |
+| 噪声抗干扰 | 98.0% | 96.0% |
+
+**改善**：fs-216（斯坦福小镇）0.55→1.00，fs-101（Transformer）0.80→1.00，fs-215（蒸馏）0.58→0.87
+
+**退化**：fs-203（PEAS）1.00→0.00（chunk 变大后相关内容被合并到不相关上下文中，reranker 给负分导致拒答），ps-101（Dify）0.80→0.10，ps-103（HelloAgents）0.33→0.10
+
+### 回滚原因
+
+chunk=512 在检索层修复了碎片化问题（fs-216 满分），但引入了新的退化——较大 chunk 中混入不相关内容，导致 reranker 误判。整体 composite 从 0.84 降至 0.81，得不偿失。
+
+**结论**：简单调大 chunk_size 不是银弹。更好的方案可能是语义分块（按段落/章节边界切分）或层级索引（大 chunk 用于上下文，小 chunk 用于精确匹配）。
+
+### 回滚
+
+所有代码改动已回滚，索引恢复为 chunk=256（5487 chunks）。最终版本仍为 v4_kpfix2（composite=0.84）。
+
+---
+
+## [2026-04-02] 优化：Answer 层评测 0.80 → 0.84
+
+### 优化背景
+
+v3_baseline 评测 composite=0.80，主要薄弱点：
+- partially_supported 正确率 44.4%（Agent 过度拒答）
+- fully_supported KP recall 0.79（关键术语被意译/遗漏）
+- noisy_context 2 条失败（噪声泄漏 + KP 未命中）
+
+### 优化措施
+
+#### 1. SYSTEM_PROMPT 重写（`app/agent/context_builder.py`）
+
+| 改动 | 说明 |
+|------|------|
+| 规则 5-7 重构 | 拆分拒答策略：部分支撑时回答已知部分 + 标注缺失，仅完全无证据才拒答 |
+| 新增规则 8-9 | 保留证据原文关键术语/专有名词/数字，列举类完整列出 |
+| 新增规则 10 | 噪声抗干扰：辨别多来源证据，忽略不相关内容 |
+| DEBUG_TRACE 增强 | 新增 Step 2.5 Coverage Assessment（覆盖评估 + 关键术语提取） |
+| build_final_context | 回答要求改为支持部分作答 + 仅完全不相关时才拒答 |
+
+#### 2. 检索过滤增强（`app/agent/context_builder.py`）
+
+- `filter_retrieved_docs` 新增 `score_gap_ratio=0.4` 参数，剔除与最高分差距过大的噪声文档
+- eval 端点 `score_threshold` 从 0.3 降至 0.1，避免弱相关证据被误过滤
+
+#### 3. 评测数据集 KP 变体修复（`data/answer_eval_dataset.jsonl`）
+
+为 10 条样本补充中英文/意译变体（使用嵌套列表格式），解决 LLM 用中文回答但 KP 只有英文的匹配失败：
+- fs-204: `["Thought","Action","Observation"]` → `[["Thought","思考"],["Action","行动","行为"],["Observation","观察"]]`
+- nc-207: `["high-throughput","append-only"]` → `[["high-throughput","高吞吐"],["append-only","追加式"]]`
+- 共修复：fs-101/103/204/210/212/213/215/217, nc-207, ps 无
+
+#### 4. 评分函数兼容变体组（`scripts/scoring_rubric.py` + `scripts/eval_answer.py`）
+
+`metric_answer_accuracy` 和 `key_point_hit` 支持混合格式：plain string 或 variant list，每组任一变体命中即算通过。
+
+#### 5. 查询扩展（已回滚）
+
+尝试在 `knowledge_base.py` 中用 LLM 生成查询变体多路召回，但导致 unsupported 题目误答（refusal 100%→98%），composite 反降至 0.80，已回滚。
+
+### 评测结果对比
+
+| 指标 | v3_baseline | v4_kpfix2（最终） | 变化 |
+|------|------------|------------------|------|
+| **Avg Composite** | **0.80** | **0.84** | **+0.04** |
+| 答案正确性 | 74.0% (37/50) | 82.0% (41/50) | +8% |
+| 证据一致性 | 96.0% (48/50) | 94.0% (47/50) | -2% |
+| 正确拒答 | 100% (50/50) | 100% (50/50) | 持平 |
+| 噪声抗干扰 | 94.0% (47/50) | 98.0% (49/50) | +4% |
+| 部分作答合规 | 90.0% (45/50) | 92.0% (46/50) | +2% |
+
+### 各题型对比
+
+| 题型 | v3 正确/KP | v4 正确/KP | 变化 |
+|------|-----------|-----------|------|
+| fully_supported | 16/22, 0.79 | 17/22, 0.83 | +1, +0.04 |
+| partially_supported | 4/9, 0.44 | 5/9, 0.54 | +1, +0.10 |
+| unsupported | 10/10, 1.00 | 10/10, 1.00 | 持平 |
+| noisy_context | 7/9, 0.85 | 9/9, 1.00 | +2, +0.15 |
+
+### 剩余瓶颈
+
+- **检索层**：fs-216（斯坦福小镇 vs 旅行规划语义鸿沟）、ps-201/ps-202（证据未召回）
+- **LLM 意译**：fs-210/fs-215 仍未完全命中原文术语（gpt-4o-mini 遵从度有限）
+
+### 输出文件
+
+- `data/eval_reports/eval_answer_2026-04-02_v4_kpfix2.md`
+- `data/eval_answer_results.json`
+
+---
+
+## [2026-04-02] 评测：Answer 层基线评测（v3_baseline）
+
+### 评测配置
+
+| 项目 | 值 |
+|------|------|
+| 评测脚本 | `scripts/eval_answer.py`（在线模式） |
+| 数据集 | `data/answer_eval_dataset.jsonl`（50 条） |
+| API 端点 | `POST /eval/query`（跳过 memory，纯 RAG） |
+| Top-K | 5 |
+| LLM | gpt-4o-mini（temperature=0.1） |
+| Embedding | paraphrase-multilingual-MiniLM-L12-v2 |
+| Reranker | mmarco-mMiniLMv2-L12-H384-v1 |
+| 耗时 | 395.1s |
+
+### 总体指标
+
+| 指标 | 通过率 | 综合分 |
+|------|--------|--------|
+| 答案正确性（M1） | 74.0%（37/50） | — |
+| 证据一致性（M2） | 96.0%（48/50） | — |
+| 正确拒答（M4） | **100.0%**（50/50） | — |
+| 噪声抗干扰（M6） | 94.0%（47/50） | — |
+| 部分作答合规（M5） | 90.0%（45/50） | — |
+| **Avg Composite** | — | **0.80** |
+
+### 各题型表现
+
+| 题型 | 数量 | 正确率 | 平均 KP 召回 |
+|------|------|--------|-------------|
+| fully_supported | 22 | 72.7%（16/22） | 0.79 |
+| partially_supported | 9 | 44.4%（4/9） | 0.44 |
+| unsupported | 10 | **100%**（10/10） | 1.00 |
+| noisy_context | 9 | 77.8%（7/9） | 0.85 |
+
+### 失败分析（15 条）
+
+**fully_supported 失败 6 条：**
+- fs-203（PEAS 四维度）、fs-204（ReAct 循环）、fs-215（蒸馏使命）：KP recall = 0，检索命中但答案未覆盖关键词
+- fs-101（Transformer vs RNN）、fs-103（LangGraph Conditional Edge）、fs-212（GAIA 评分算法）：KP recall = 0.5，部分关键点遗漏
+
+**partially_supported 失败 5 条（最严重）：**
+- ps-102、ps-201、ps-202：直接回复"证据不足，无法回答"，本应部分作答 + 标注缺口
+- ps-101、ps-103：回答了但未覆盖关键点
+- **核心问题：Agent 过度拒答**，对部分支撑问题倾向于完全拒绝
+
+**noisy_context 失败 2 条：**
+- nc-101（AgentScope Message）：噪声词 content/role/metadata 泄漏到答案
+- nc-207（Kafka 日志结构）：KP recall = 0，完全未命中
+
+### 改进方向
+
+1. **优化 partially_supported 策略** — 调整 system prompt，要求有部分证据时回答已知部分 + 明确标注信息缺口，而非直接拒答
+2. **提升 key_point 覆盖率** — 部分 fully_supported 题 KP recall 低，考虑优化 prompt 要求更精确引用来源关键信息
+3. **加强噪声过滤** — nc-101 噪声泄漏，需在 context builder 中更好区分相关/干扰证据
+
+### 输出文件
+
+- `data/eval_answer_results.json` — 完整 JSON 结果
+- `data/eval_reports/eval_answer_2026-04-02_v3_baseline.md` — Markdown 报告
+
+---
+
 ## [2026-04-01] 新增：Answer 层评测体系
 
 ### 背景

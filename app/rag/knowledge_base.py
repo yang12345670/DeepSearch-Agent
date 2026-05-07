@@ -156,4 +156,3 @@ class KnowledgeBase:
             top_n=top_n,
         )
         return [c.text for c, _ in reranked]
-

@@ -72,10 +72,10 @@ def _safe_id(s: str) -> str:
     return base or "doc"
 
 
-def _chunk_from_source(text: str, source: str) -> List[DocumentChunk]:
+def _chunk_from_source(text: str, source: str, embedder=None) -> List[DocumentChunk]:
     from app.rag.chunker import split_documents
-
     chunks = split_documents([text], chunk_size=256, overlap=64)
+
     out: List[DocumentChunk] = []
     for i, c in enumerate(chunks):
         out.append(
@@ -112,20 +112,21 @@ def rebuild_index() -> int:
         logger.warning("auto_index: No .txt/.md files under %s", settings.docs_dir)
         return 0
 
-    chunks: List[DocumentChunk] = []
-    for rel_path, content in files:
-        chunks.extend(_chunk_from_source(content, rel_path))
-
-    if not chunks:
-        logger.warning("auto_index: No chunks produced (all docs empty?)")
-        return 0
-
+    # Create embedder early — needed for both semantic chunking and indexing
     force_hash = os.environ.get("DEEPSEARCH_EMBED_FORCE_HASH", "").lower() in (
         "1", "true", "yes",
     )
     embedder = get_embedding_model(
         settings.embedding_model_name, force_hash=force_hash, dim=384
     )
+
+    chunks: List[DocumentChunk] = []
+    for rel_path, content in files:
+        chunks.extend(_chunk_from_source(content, rel_path, embedder=embedder))
+
+    if not chunks:
+        logger.warning("auto_index: No chunks produced (all docs empty?)")
+        return 0
     logger.info("auto_index: Embedding backend: %s (dim=%d)", embedder.backend, embedder.dim)
 
     texts = [c.text for c in chunks]

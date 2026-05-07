@@ -13,7 +13,7 @@ Provider and credentials are configured via .env / environment variables.
 from __future__ import annotations
 
 import logging
-from typing import List, Optional
+from typing import Any, Dict, Generator, List, Optional
 
 from app.config import settings
 from app.llm.prompts import build_answer_prompt
@@ -104,6 +104,104 @@ class LLMClient:
         except Exception as e:
             logger.error("LLM API call failed: %s. Falling back to local.", e)
             return self._local_fallback(system_prompt, user_message)
+
+    def generate_with_tools(
+        self,
+        *,
+        messages: List[Dict[str, Any]],
+        tools: List[Dict[str, Any]],
+        tool_choice: str = "auto",
+    ) -> Dict[str, Any]:
+        """Call OpenAI-compatible chat completions with function-calling tools.
+
+        Returns an assistant message dict ready to append to `messages`:
+            {
+              "role": "assistant",
+              "content": str | None,
+              "tool_calls": [{"id", "type", "function": {"name", "arguments"}}, ...] | None
+            }
+
+        Caller is responsible for:
+          1) Detecting `tool_calls` and dispatching them
+          2) Appending the assistant msg + each `{"role": "tool", ...}` response
+             back into messages, then calling this method again
+          3) Stopping when the assistant response has no `tool_calls`
+
+        Raises:
+            NotImplementedError: when provider is 'local' or has no live client
+                (function calling needs an OpenAI-compatible API).
+        """
+        if self.provider == "local" or self._client is None:
+            raise NotImplementedError(
+                "Tool calling requires an OpenAI-compatible provider with a "
+                "valid API key. Set LLM_PROVIDER=openai (or deepseek/zhipu) "
+                "and LLM_API_KEY in .env."
+            )
+
+        response = self._client.chat.completions.create(
+            model=self.model,
+            messages=messages,
+            tools=tools,
+            tool_choice=tool_choice,
+            temperature=self.temperature,
+            max_tokens=self.max_tokens,
+        )
+        msg = response.choices[0].message
+        tool_calls_out: Optional[List[Dict[str, Any]]] = None
+        if msg.tool_calls:
+            tool_calls_out = [
+                {
+                    "id": tc.id,
+                    "type": "function",
+                    "function": {
+                        "name": tc.function.name,
+                        "arguments": tc.function.arguments,  # JSON string
+                    },
+                }
+                for tc in msg.tool_calls
+            ]
+
+        logger.info(
+            "LLM tool-call response: model=%s, tokens=%s, content_len=%d, tool_calls=%d",
+            self.model,
+            getattr(response.usage, "total_tokens", "?"),
+            len(msg.content or ""),
+            len(tool_calls_out or []),
+        )
+
+        return {
+            "role": "assistant",
+            "content": msg.content,
+            "tool_calls": tool_calls_out,
+        }
+
+    def stream_generate(
+        self, *, system_prompt: str, user_message: str
+    ) -> Generator[str, None, None]:
+        """Streaming generation — yields token strings as they arrive."""
+        if self.provider != "local" or self._client is None:
+            if self._client is not None:
+                try:
+                    stream = self._client.chat.completions.create(
+                        model=self.model,
+                        messages=[
+                            {"role": "system", "content": system_prompt},
+                            {"role": "user", "content": user_message},
+                        ],
+                        temperature=self.temperature,
+                        max_tokens=self.max_tokens,
+                        stream=True,
+                    )
+                    for chunk in stream:
+                        delta = chunk.choices[0].delta
+                        if delta.content:
+                            yield delta.content
+                    return
+                except Exception as e:
+                    logger.error("LLM streaming failed: %s. Falling back.", e)
+        # Fallback: yield the whole response at once
+        full = self._local_fallback(system_prompt, user_message)
+        yield full
 
     def generate(self, query: str, contexts: List[str], *, recent_context: Optional[str] = None) -> str:
         """Legacy interface -- kept for backward compatibility."""

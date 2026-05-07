@@ -36,12 +36,11 @@ def _safe_id(s: str) -> str:
     return base or "doc"
 
 
-def chunk_from_source(text: str, source: str) -> list[DocumentChunk]:
+def chunk_from_source(text: str, source: str, embedder=None) -> list[DocumentChunk]:
     """Chunk one document and attach metadata including source path."""
     from app.rag.chunker import split_documents
-
-    # Use split_documents on a single-item list, then enrich metadata.
     chunks = split_documents([text], chunk_size=256, overlap=64)
+
     out: list[DocumentChunk] = []
     for i, c in enumerate(chunks):
         out.append(
@@ -66,16 +65,17 @@ def main() -> None:
         print(f"No .txt/.md files under {settings.docs_dir}")
         return
 
+    # Create embedder early — needed for semantic chunking and indexing
+    force_hash = os.environ.get("DEEPSEARCH_EMBED_FORCE_HASH", "").lower() in ("1", "true", "yes")
+    embedder = get_embedding_model(settings.embedding_model_name, force_hash=force_hash, dim=384)
+
     chunks: list[DocumentChunk] = []
     for rel_path, content in files:
-        chunks.extend(chunk_from_source(content, rel_path))
+        chunks.extend(chunk_from_source(content, rel_path, embedder=embedder))
 
     if not chunks:
         print("No chunks produced (all docs empty?)")
         return
-
-    force_hash = os.environ.get("DEEPSEARCH_EMBED_FORCE_HASH", "").lower() in ("1", "true", "yes")
-    embedder = get_embedding_model(settings.embedding_model_name, force_hash=force_hash, dim=384)
     print(f"Embedding backend: {embedder.backend} (dim={embedder.dim})")
 
     texts = [c.text for c in chunks]

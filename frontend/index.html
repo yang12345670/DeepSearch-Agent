@@ -598,6 +598,64 @@
         padding: 2px 0;
       }
 
+      /* ---- Citation badges in answer ---- */
+      .cite-badge {
+        display: inline-block;
+        background: #e0f2fe;
+        color: #0369a1;
+        font-size: 11px;
+        font-weight: 600;
+        padding: 0 4px;
+        border-radius: 4px;
+        cursor: pointer;
+        vertical-align: super;
+        line-height: 1;
+        margin: 0 1px;
+        transition: background 0.2s;
+      }
+      .cite-badge:hover {
+        background: #bae6fd;
+      }
+
+      /* ---- Citations (Sources) panel ---- */
+      .citations-section {
+        margin-top: 8px;
+        padding: 8px 10px;
+        border-radius: 8px;
+        background: #f0f9ff;
+        border: 1px solid #bae6fd;
+      }
+      .cite-title {
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--user);
+        margin-bottom: 4px;
+      }
+      .cite-item {
+        font-size: 12px;
+        padding: 6px 0;
+        border-bottom: 1px solid #e0f2fe;
+        transition: background 0.3s;
+      }
+      .cite-item:last-child {
+        border-bottom: none;
+      }
+      .cite-num {
+        font-weight: 700;
+        color: #0369a1;
+        margin-right: 4px;
+      }
+      .cite-source {
+        font-weight: 600;
+        color: #475569;
+      }
+      .cite-text {
+        margin-top: 2px;
+        color: #64748b;
+        font-size: 11px;
+        line-height: 1.4;
+      }
+
       /* ---- Thinking indicator ---- */
       .thinking-bar {
         display: none;
@@ -741,7 +799,13 @@
           </svg>
           Knowledge Base
         </button>
-        <!-- Future: more toolbar buttons here -->
+        <button class="toolbar-btn active" id="ragToggleBtn" type="button" title="点击切换是否使用 RAG 知识库">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="9"></circle>
+            <path d="M9 12l2 2 4-4"></path>
+          </svg>
+          <span id="ragToggleLabel">RAG: 开</span>
+        </button>
       </nav>
 
       <!-- Upload panel (hidden by default) -->
@@ -782,6 +846,26 @@
       const API_BASE = "http://127.0.0.1:8000";
       const API_URL = API_BASE + "/chat";
       var SESSION_ID = localStorage.getItem("deepsearch_current_session") || "";
+      var USE_RAG = localStorage.getItem("deepsearch_use_rag") !== "false";
+
+      // ---- RAG Toggle ----
+      const ragToggleBtn = document.getElementById("ragToggleBtn");
+      const ragToggleLabel = document.getElementById("ragToggleLabel");
+      function applyRagToggle() {
+        if (USE_RAG) {
+          ragToggleBtn.classList.add("active");
+          ragToggleLabel.textContent = "RAG: 开";
+        } else {
+          ragToggleBtn.classList.remove("active");
+          ragToggleLabel.textContent = "RAG: 关";
+        }
+      }
+      applyRagToggle();
+      ragToggleBtn.addEventListener("click", function () {
+        USE_RAG = !USE_RAG;
+        localStorage.setItem("deepsearch_use_rag", USE_RAG ? "true" : "false");
+        applyRagToggle();
+      });
 
       // ---- Session Management ----
       const sessionListEl = document.getElementById("sessionList");
@@ -888,9 +972,16 @@
           var resp = await fetch(API_BASE + "/chat/sessions");
           var data = await resp.json();
           var sessions = data.sessions || [];
-          if (sessions.length === 0 || !SESSION_ID) {
+          if (!SESSION_ID) {
             await createNewSession();
-            return loadSessions(opts);
+          }
+          if (sessions.length === 0) {
+            renderSessionList([{
+              session_id: SESSION_ID,
+              title: "New Chat",
+              last_active: new Date().toISOString(),
+            }], SESSION_ID);
+            return;
           }
           // If current session not in list, it might be a new unsaved session —
           // add a placeholder so the UI shows it, instead of silently switching away.
@@ -1166,6 +1257,16 @@
       /* ---- Render a structured AI response ---- */
       function addAIMessage(data) {
         var answer = (data.answer || "").trim();
+
+        // Extract embedded citations from stored content (<!--CITATIONS:[...]-->)
+        if (!data.citations || data.citations.length === 0) {
+          var citeMatch = answer.match(/<!--CITATIONS:(.*?)-->/);
+          if (citeMatch) {
+            try { data.citations = JSON.parse(citeMatch[1]); } catch (e) {}
+            answer = answer.replace(/\n?<!--CITATIONS:.*?-->/, "").trim();
+          }
+        }
+
         var isFallback = false;
         if (!answer) {
           isFallback = true;
@@ -1215,7 +1316,14 @@
           bubble.appendChild(details);
         }
 
-        // 2. Final answer
+        // 2. Final answer — clean residual tags and render citation badges
+        var cleanAnswer = answer
+          .replace(/\[EVIDENCE_USED\][\s\S]*/g, "")
+          .replace(/\[\/FINAL_ANSWER\]/g, "")
+          .replace(/\[FINAL_ANSWER\]/g, "")
+          .replace(/\[DEBUG_TRACE_START\][\s\S]*?\[DEBUG_TRACE_END\]/g, "")
+          .trim();
+
         const answerSection = document.createElement("div");
         answerSection.className = "answer-section" + (isFallback ? " is-fallback" : "");
 
@@ -1226,13 +1334,46 @@
 
         const answerDiv = document.createElement("div");
         answerDiv.className = "answer-text";
-        answerDiv.textContent = answer;
+        var answerHtml = cleanAnswer
+          .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+          .replace(/\[(\d+)\]/g, '<span class="cite-badge" data-cite="$1" title="Click to view source">[$1]</span>');
+        answerDiv.innerHTML = answerHtml;
         answerSection.appendChild(answerDiv);
 
         bubble.appendChild(answerSection);
 
-        // 3. Evidence section
-        if (evidenceUsed.length > 0) {
+        // 3. Citations panel (from data.citations if available)
+        const citations = data.citations || [];
+        if (citations.length > 0) {
+          const citeSection = document.createElement("div");
+          citeSection.className = "citations-section";
+          const citeTitle = document.createElement("div");
+          citeTitle.className = "cite-title";
+          citeTitle.textContent = "Sources";
+          citeSection.appendChild(citeTitle);
+          citations.forEach(function (c) {
+            const item = document.createElement("div");
+            item.className = "cite-item";
+            item.id = "cite-h-" + c.id + "-" + Math.random().toString(36).slice(2, 6);
+            const num = document.createElement("span");
+            num.className = "cite-num";
+            num.textContent = "[" + c.id + "]";
+            item.appendChild(num);
+            const src = document.createElement("span");
+            src.className = "cite-source";
+            src.textContent = c.source;
+            item.appendChild(src);
+            const txt = document.createElement("div");
+            txt.className = "cite-text";
+            txt.textContent = c.text;
+            item.appendChild(txt);
+            citeSection.appendChild(item);
+          });
+          bubble.appendChild(citeSection);
+        }
+
+        // 4. Evidence section (fallback when no citations)
+        if (citations.length === 0 && evidenceUsed.length > 0) {
           const evSection = document.createElement("div");
           evSection.className = "evidence-section";
 
@@ -1303,30 +1444,192 @@
 
         var startTime = startThinking();
 
+        // Prepare streaming AI bubble
+        const row = document.createElement("div");
+        row.className = "row ai";
+        const bubble = document.createElement("div");
+        bubble.className = "bubble";
+        const answerSection = document.createElement("div");
+        answerSection.className = "answer-section";
+        const answerLabel = document.createElement("div");
+        answerLabel.className = "answer-label";
+        answerLabel.textContent = "Output";
+        answerSection.appendChild(answerLabel);
+        const answerDiv = document.createElement("div");
+        answerDiv.className = "answer-text";
+        answerDiv.textContent = "";
+        answerSection.appendChild(answerDiv);
+        bubble.appendChild(answerSection);
+        row.appendChild(bubble);
+        chatEl.appendChild(row);
+
+        var rawText = "";
+        var debugTrace = "";
+        var evidenceUsed = [];
+        var citations = [];
+        var isInFinalAnswer = false;
+        var displayText = "";
+
         try {
-          const response = await fetch(API_URL, {
+          const response = await fetch(API_BASE + "/chat/stream", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              session_id: SESSION_ID,
-              query: query,
-            }),
+            body: JSON.stringify({ session_id: SESSION_ID, query: query, use_rag: USE_RAG }),
           });
 
-          if (!response.ok) {
-            throw new Error("HTTP " + response.status);
+          if (!response.ok) throw new Error("HTTP " + response.status);
+
+          const reader = response.body.getReader();
+          const decoder = new TextDecoder();
+          var buffer = "";
+
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            var lines = buffer.split("\n");
+            buffer = lines.pop();
+
+            var currentEvent = "";
+            for (var i = 0; i < lines.length; i++) {
+              var line = lines[i];
+              if (line.startsWith("event: ")) {
+                currentEvent = line.slice(7).trim();
+              } else if (line.startsWith("data: ") && currentEvent) {
+                var payload = JSON.parse(line.slice(6));
+                if (currentEvent === "token") {
+                  rawText += payload.text;
+                  // Parse on-the-fly: extract FINAL_ANSWER content for display
+                  var faStart = rawText.indexOf("[FINAL_ANSWER]");
+                  var faEnd = rawText.indexOf("[/FINAL_ANSWER]");
+                  if (faStart !== -1) {
+                    var afterTag = faStart + "[FINAL_ANSWER]".length;
+                    if (faEnd !== -1) {
+                      displayText = rawText.slice(afterTag, faEnd).trim();
+                    } else {
+                      displayText = rawText.slice(afterTag).trim();
+                    }
+                    // Strip template placeholder and residual tags
+                    if (displayText.startsWith("（面向用户")) displayText = "";
+                    var liveText = displayText
+                      .replace(/\[EVIDENCE_USED\][\s\S]*/g, "")
+                      .replace(/\[\/FINAL_ANSWER\]/g, "")
+                      .trim();
+                    answerDiv.textContent = liveText;
+                  }
+                  chatEl.scrollTop = chatEl.scrollHeight;
+                } else if (currentEvent === "evidence") {
+                  citations = payload.citations || [];
+                } else if (currentEvent === "done") {
+                  debugTrace = payload.debug_trace || "";
+                  evidenceUsed = payload.evidence_used || [];
+                } else if (currentEvent === "error") {
+                  throw new Error(payload.message);
+                }
+                currentEvent = "";
+              }
+            }
           }
 
           var elapsedSec = stopThinking(startTime);
-          const data = await response.json();
-          data._elapsed = elapsedSec;
-          addAIMessage(data);
-          // Refresh sidebar to show updated title/preview (but don't reload chat area)
+
+          // Rebuild bubble with full structure (time badge, debug trace, evidence)
+          bubble.innerHTML = "";
+
+          // Time badge
+          var badge = document.createElement("div");
+          badge.className = "time-badge";
+          badge.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>' + elapsedSec + "s";
+          bubble.appendChild(badge);
+
+          // Debug trace
+          if (debugTrace) {
+            var details = document.createElement("details");
+            details.className = "debug-panel";
+            var summary = document.createElement("summary");
+            summary.textContent = "Intermediate Steps";
+            details.appendChild(summary);
+            var body = document.createElement("div");
+            body.className = "trace-body";
+            body.textContent = debugTrace;
+            details.appendChild(body);
+            bubble.appendChild(details);
+          }
+
+          // Final answer with citation badges
+          // Clean up any residual tags from raw output
+          var cleanAnswer = (displayText || rawText)
+            .replace(/\[EVIDENCE_USED\][\s\S]*/g, "")
+            .replace(/\[\/FINAL_ANSWER\]/g, "")
+            .replace(/\[FINAL_ANSWER\]/g, "")
+            .replace(/\[DEBUG_TRACE_START\][\s\S]*?\[DEBUG_TRACE_END\]/g, "")
+            .trim();
+          var finalSection = document.createElement("div");
+          finalSection.className = "answer-section";
+          var finalLabel = document.createElement("div");
+          finalLabel.className = "answer-label";
+          finalLabel.textContent = "Output";
+          finalSection.appendChild(finalLabel);
+          var finalDiv = document.createElement("div");
+          finalDiv.className = "answer-text";
+          // Replace [1], [2] etc with styled citation badges
+          var answerHtml = cleanAnswer
+            .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+            .replace(/\[(\d+)\]/g, '<span class="cite-badge" data-cite="$1" title="Click to view source">[$1]</span>');
+          finalDiv.innerHTML = answerHtml;
+          finalSection.appendChild(finalDiv);
+          bubble.appendChild(finalSection);
+
+          // Citations panel (sources)
+          if (citations.length > 0) {
+            var citeSection = document.createElement("div");
+            citeSection.className = "citations-section";
+            var citeTitle = document.createElement("div");
+            citeTitle.className = "cite-title";
+            citeTitle.textContent = "Sources";
+            citeSection.appendChild(citeTitle);
+            citations.forEach(function (c) {
+              var item = document.createElement("div");
+              item.className = "cite-item";
+              item.id = "cite-" + c.id;
+              var num = document.createElement("span");
+              num.className = "cite-num";
+              num.textContent = "[" + c.id + "]";
+              item.appendChild(num);
+              var src = document.createElement("span");
+              src.className = "cite-source";
+              src.textContent = c.source;
+              item.appendChild(src);
+              var txt = document.createElement("div");
+              txt.className = "cite-text";
+              txt.textContent = c.text;
+              item.appendChild(txt);
+              citeSection.appendChild(item);
+            });
+            bubble.appendChild(citeSection);
+
+            // Click citation badge to highlight source
+            bubble.querySelectorAll(".cite-badge").forEach(function (badge) {
+              badge.addEventListener("click", function () {
+                var citeId = badge.getAttribute("data-cite");
+                var target = document.getElementById("cite-" + citeId);
+                if (target) {
+                  target.style.background = "#fff3cd";
+                  target.scrollIntoView({ behavior: "smooth", block: "nearest" });
+                  setTimeout(function () { target.style.background = ""; }, 2000);
+                }
+              });
+            });
+          }
+
+          chatEl.scrollTop = chatEl.scrollHeight;
           loadSessions({ skipHistory: true });
         } catch (err) {
           stopThinking(startTime);
-          console.error("chat request failed:", err);
-          addErrorMessage(err.message);
+          console.error("stream request failed:", err);
+          bubble.innerHTML = "";
+          bubble.textContent = "Request failed: " + err.message;
         } finally {
           sendBtn.disabled = false;
         }

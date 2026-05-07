@@ -24,9 +24,11 @@ logger = logging.getLogger(__name__)
 class ShortTermMemory:
     """Session short-term memory backed by Redis."""
 
-    def __init__(self, max_rounds: int = 8) -> None:
+    def __init__(self, max_rounds: int = 8, keep_rounds: int = 5) -> None:
         self.max_rounds = max_rounds
         self.max_messages = max_rounds * 2
+        self.keep_rounds = keep_rounds
+        self.keep_messages = keep_rounds * 2
         self.max_traces = 50
         self._redis = None
         try:
@@ -54,10 +56,20 @@ class ShortTermMemory:
     # Conversation history (sliding window)
     # ------------------------------------------------------------------
 
-    def save_message(self, session_id: str, role: str, content: str) -> bool:
-        """Save one message and keep only recent N rounds."""
+    def save_message(
+        self, session_id: str, role: str, content: str,
+    ) -> Tuple[bool, List[Dict[str, str]]]:
+        """Save one message. When the window overflows, evict oldest messages
+        before trimming so they can be fed into the long-term memory pipeline.
+
+        Returns:
+            (success, evicted_messages) where evicted_messages is a list of
+            {"role": ..., "content": ...} dicts for messages removed from the
+            sliding window.  Empty list when no eviction occurred.
+        """
+        evicted: List[Dict[str, str]] = []
         if self._redis is None:
-            return False
+            return False, evicted
         try:
             payload = {
                 "role": role,
@@ -66,10 +78,29 @@ class ShortTermMemory:
             }
             key = self._messages_key(session_id)
             self._redis.rpush(key, json.dumps(payload, ensure_ascii=False))
-            self._redis.ltrim(key, -self.max_messages, -1)
-            return True
+
+            current_len = self._redis.llen(key)
+            if current_len > self.max_messages:
+                evict_count = current_len - self.keep_messages
+                # Retrieve messages that are about to be evicted
+                raw_evicted = self._redis.lrange(key, 0, evict_count - 1)
+                self._redis.ltrim(key, evict_count, -1)
+                for raw in raw_evicted:
+                    try:
+                        item = json.loads(raw)
+                        evicted.append({
+                            "role": str(item.get("role", "user")),
+                            "content": str(item.get("content", "")),
+                        })
+                    except Exception:
+                        continue
+                logger.info(
+                    "Evicted %d messages from session %s (window %d→%d)",
+                    len(evicted), session_id, current_len, self.keep_messages,
+                )
+            return True, evicted
         except Exception:
-            return False
+            return False, evicted
 
     def get_recent_messages(self, session_id: str) -> List[Dict[str, str]]:
         """Return recent messages as structured list."""

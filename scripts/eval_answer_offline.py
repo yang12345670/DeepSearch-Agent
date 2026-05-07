@@ -179,6 +179,7 @@ def score_all(
                     + w["m4"] * result["m4_refusal"]["score"]
                     + w["m5"] * result["m5_partial"]["score"]
                     + w["m6"] * (1.0 - result["m6_noise"]["score"])
+                    + w["m7"] * (1.0 - result["m7_hallucination"]["score"])
                 )
                 result["composite_score"] = round(composite, 4)
 
@@ -190,6 +191,7 @@ def score_all(
                     and (result["m4_refusal"]["score"] >= THRESHOLDS["m4"] or w["m4"] == 0)
                     and (result["m5_partial"]["score"] >= THRESHOLDS["m5"] or w["m5"] == 0)
                     and (result["m6_noise"]["score"] <= THRESHOLDS["m6"] or w["m6"] == 0)
+                    and (result["m7_hallucination"]["score"] <= THRESHOLDS["m7"] or w["m7"] == 0)
                 )
 
         # Tag errors for this sample
@@ -232,6 +234,7 @@ def aggregate_overall(results: List[Dict]) -> Dict[str, Any]:
     m4s = [r["m4_refusal"]["score"] for r in results]
     m5s = [r["m5_partial"]["score"] for r in results]
     m6s = [r["m6_noise"]["score"] for r in results]
+    m7s = [r["m7_hallucination"]["score"] for r in results]
     composites = [r["composite_score"] for r in results]
 
     return {
@@ -242,6 +245,7 @@ def aggregate_overall(results: List[Dict]) -> Dict[str, Any]:
         "avg_m4_refusal": _avg(m4s),
         "avg_m5_partial": _avg(m5s),
         "avg_m6_noise": _avg(m6s),
+        "avg_m7_hallucination": _avg(m7s),
         "pass_rates": {
             "m1": _pass_rate(m1s, THRESHOLDS["m1"]),
             "m2": _pass_rate(m2s, THRESHOLDS["m2"]),
@@ -249,6 +253,7 @@ def aggregate_overall(results: List[Dict]) -> Dict[str, Any]:
             "m4": _pass_rate(m4s, THRESHOLDS["m4"]),
             "m5": _pass_rate(m5s, THRESHOLDS["m5"]),
             "m6": _pass_rate(m6s, THRESHOLDS["m6"], lower_is_better=True),
+            "m7": _pass_rate(m7s, THRESHOLDS["m7"], lower_is_better=True),
         },
         "all_pass_rate": _avg([1.0 if r["all_pass"] else 0.0 for r in results]),
     }
@@ -325,6 +330,8 @@ def _get_failed_metrics(r: Dict) -> List[str]:
         failed.append("m5")
     if w["m6"] > 0 and r["m6_noise"]["score"] > THRESHOLDS["m6"]:
         failed.append("m6")
+    if w["m7"] > 0 and r["m7_hallucination"]["score"] > THRESHOLDS["m7"]:
+        failed.append("m7")
     return failed
 
 
@@ -600,13 +607,14 @@ def print_summary(
     print(f"  All-Pass Rate:       {overall['all_pass_rate']:.1%}")
     print("-" * w)
 
-    print("  METRIC AVERAGES (higher=better except M3,M6)")
+    print("  METRIC AVERAGES (higher=better except M3,M6,M7)")
     print(f"    M1 Accuracy:       {overall['avg_m1_accuracy']:.2f}  pass={overall['pass_rates']['m1']:.0%}")
     print(f"    M2 Groundedness:   {overall['avg_m2_groundedness']:.2f}  pass={overall['pass_rates']['m2']:.0%}")
     print(f"    M3 Unsupported:    {overall['avg_m3_unsupported']:.2f}  pass={overall['pass_rates']['m3']:.0%}  (lower=better)")
     print(f"    M4 Refusal:        {overall['avg_m4_refusal']:.2f}  pass={overall['pass_rates']['m4']:.0%}")
     print(f"    M5 Partial:        {overall['avg_m5_partial']:.2f}  pass={overall['pass_rates']['m5']:.0%}")
     print(f"    M6 Noise:          {overall['avg_m6_noise']:.2f}  pass={overall['pass_rates']['m6']:.0%}  (lower=better)")
+    print(f"    M7 Hallucination:  {overall['avg_m7_hallucination']:.2f}  pass={overall['pass_rates']['m7']:.0%}  (lower=better)")
     print("-" * w)
 
     print("  BY CASE TYPE")
@@ -685,6 +693,7 @@ def generate_markdown_report(
     L.append(f"| M4 Refusal | {overall['avg_m4_refusal']:.2f} | {overall['pass_rates']['m4']:.0%} |")
     L.append(f"| M5 Partial | {overall['avg_m5_partial']:.2f} | {overall['pass_rates']['m5']:.0%} |")
     L.append(f"| M6 Noise (lower=better) | {overall['avg_m6_noise']:.2f} | {overall['pass_rates']['m6']:.0%} |")
+    L.append(f"| **M7 Hallucination (lower=better)** | **{overall['avg_m7_hallucination']:.2f}** | {overall['pass_rates']['m7']:.0%} |")
     L.append("")
 
     # --- By Case Type ---
@@ -729,11 +738,12 @@ def generate_markdown_report(
     # --- Per-Sample Results ---
     L.append("## Per-Sample Results")
     L.append("")
-    L.append("| ID | Type | Comp | M1 | M2 | M3 | M4 | M5 | M6 | Pass | Errors |")
-    L.append("|----|------|------|----|----|----|----|----|----|----- |--------|")
+    L.append("| ID | Type | Comp | M1 | M2 | M3 | M4 | M5 | M6 | M7 | Pass | Errors |")
+    L.append("|----|------|------|----|----|----|----|----|----|----|------|--------|")
     for r in results:
         err_tags = [et["tag"] for et in r.get("error_tags", [])]
         err_str = ", ".join(err_tags) if err_tags else "-"
+        m7_score = r.get("m7_hallucination", {}).get("score", 0.0)
         L.append(
             f"| {r['id']} | {r['case_type'][:8]} | {r['composite_score']:.2f} "
             f"| {r['m1_accuracy']['score']:.1f} "
@@ -742,6 +752,7 @@ def generate_markdown_report(
             f"| {r['m4_refusal']['score']:.0f} "
             f"| {r['m5_partial']['score']:.1f} "
             f"| {r['m6_noise']['score']:.1f} "
+            f"| {m7_score:.1f} "
             f"| {'Y' if r['all_pass'] else 'N'} "
             f"| {err_str} |"
         )

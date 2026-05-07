@@ -20,6 +20,41 @@ class ChatRequest(BaseModel):
         default=None,
         description="User id for long-term memory isolation.",
     )
+    use_rag: bool = Field(
+        default=True,
+        description="If False, skip retrieval and answer using conversation context only.",
+    )
+    mode: str = Field(
+        default="orchestrator",
+        description=(
+            "Agent dispatch mode: 'orchestrator' (legacy Planner→RAG→Summarizer, "
+            "default) or 'react' (LLM-driven tool-use loop with pluggable tools)."
+        ),
+    )
+
+
+class ArtifactItem(BaseModel):
+    """A side-effect produced by a ReAct tool call (file path, etc.)."""
+
+    type: str = Field(..., description="Artifact type, e.g. 'pdf'.")
+    file_path: str = Field(..., description="Server-side file path.")
+    size_bytes: Optional[int] = None
+
+
+class ToolCallSummary(BaseModel):
+    """Compact view of one ReAct tool invocation."""
+
+    name: str
+    arguments: dict = Field(default_factory=dict)
+    error: Optional[str] = None
+
+
+class CitationItem(BaseModel):
+    """One citation linking [n] in the answer to its source document."""
+
+    id: int = Field(..., description="Citation number (matches [n] in answer).")
+    source: str = Field(..., description="Source document filename.")
+    text: str = Field(..., description="Evidence text snippet (truncated).")
 
 
 class ChatResponse(BaseModel):
@@ -36,6 +71,19 @@ class ChatResponse(BaseModel):
     evidence_used: List[str] = Field(
         default_factory=list,
         description="Evidence snippets cited in the answer.",
+    )
+    citations: List[CitationItem] = Field(
+        default_factory=list,
+        description="Source-linked citations for [n] references in the answer.",
+    )
+    mode: str = Field(default="orchestrator", description="Mode actually used.")
+    artifacts: List[ArtifactItem] = Field(
+        default_factory=list,
+        description="Files produced by tools (e.g. generated PDFs).",
+    )
+    tool_calls: List[ToolCallSummary] = Field(
+        default_factory=list,
+        description="Compact ReAct tool-call trace (empty for orchestrator mode).",
     )
 
 

@@ -65,13 +65,23 @@ def normalize(text: str) -> str:
     return " ".join(text.lower().split())
 
 
-def key_point_hit(key_points: List[str], answer: str) -> List[bool]:
-    """Check which key_points appear in the answer."""
+def key_point_hit(key_points: list, answer: str) -> List[bool]:
+    """Check which key_points appear in the answer.
+
+    Each element can be a plain string or a list of variant strings.
+    For variant groups, any match counts as a hit.
+    """
     ans = normalize(answer)
-    return [normalize(kp) in ans for kp in key_points]
+    hits: List[bool] = []
+    for kp in key_points:
+        if isinstance(kp, list):
+            hits.append(any(normalize(v) in ans for v in kp))
+        else:
+            hits.append(normalize(kp) in ans)
+    return hits
 
 
-def key_point_recall(key_points: List[str], answer: str) -> float:
+def key_point_recall(key_points: list, answer: str) -> float:
     """Fraction of key_points found in answer."""
     if not key_points:
         return 1.0

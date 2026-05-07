@@ -44,11 +44,11 @@ _EXTRACT_SYSTEM_PROMPT = """\
 - 只输出 JSON，不要输出其他内容"""
 
 _EXTRACT_USER_TEMPLATE = """\
-以下是本轮对话内容：
+以下是即将从短期记忆中淘汰的多轮对话内容：
 
 {conversation}
 
-请提取值得长期记住的记忆，以 JSON 数组格式输出。"""
+请提取其中值得长期记住的记忆，以 JSON 数组格式输出。"""
 
 
 def extract_high_value_memories(
@@ -173,14 +173,17 @@ def _regex_fallback(
                     })
                 break
 
-    # --- task_conclusion ---
-    result_text = (task_result or "").strip()
-    if result_text and result_text != "\u8bc1\u636e\u4e0d\u8db3\uff0c\u65e0\u6cd5\u56de\u7b54\u8be5\u95ee\u9898\u3002":
-        summary = result_text if len(result_text) <= 300 else result_text[:300] + "..."
-        candidates.append({
-            "memory_type": "task_conclusion",
-            "content": summary,
-            "metadata": dict(meta, source="task_result"),
-        })
+    # --- task_conclusion: extract from assistant messages ---
+    for msg in messages:
+        if msg.get("role") != "assistant":
+            continue
+        result_text = str(msg.get("content", "")).strip()
+        if result_text and result_text != "证据不足，无法回答该问题。":
+            summary = result_text if len(result_text) <= 300 else result_text[:300] + "..."
+            candidates.append({
+                "memory_type": "task_conclusion",
+                "content": summary,
+                "metadata": dict(meta, source="evicted_assistant_msg"),
+            })
 
     return candidates

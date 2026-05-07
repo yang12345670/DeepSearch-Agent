@@ -18,15 +18,19 @@ def build_answer_prompt(query: str, contexts: list[str], recent_context: Optiona
 
 
 def build_planner_prompt(original_query: str) -> str:
-    """Decompose query into sub-questions."""
+    """Decompose query into sub-questions.
+
+    NOTE: The primary planner prompt is now in app/agent/planner.py.
+    This function is kept for the executor sub-flow (build_executor_prompt).
+    """
     return (
-        "You are a planning assistant. Decompose the user's question into 2~4 focused sub-questions.\n"
-        "Rules:\n"
-        "1) If the question is simple, return exactly 1 sub_question identical to the original question.\n"
-        "2) Otherwise, return 2 to 4 sub_questions that cover different aspects.\n"
-        "3) Output ONLY valid JSON with keys: original_query, sub_questions, strategy.\n"
-        "4) Do not include any extra text.\n\n"
-        f"User question:\n{original_query}\n"
+        "你是一个问题规划器。判断用户问题复杂度并决定是否拆分。\n"
+        "规则：\n"
+        "1) 简单的定义类、事实类问题直接返回原问题，strategy 为 \"single\"。\n"
+        "2) 复杂问题拆分为 2~4 个聚焦的子问题，strategy 为 \"decompose\"。\n"
+        "3) 严格输出 JSON：{\"sub_questions\": [...], \"strategy\": \"single\"/\"decompose\"}\n"
+        "4) 不要有任何多余文字。\n\n"
+        f"用户问题：\n{original_query}\n"
     )
 
 

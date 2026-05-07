@@ -12,3 +12,6 @@ redis
 supabase
 # Optional: for FAISS-backed dense/long-term memory
 faiss-cpu
+# Finance ingestion (Tier 1: SEC EDGAR + Alpha Vantage)
+edgartools
+httpx

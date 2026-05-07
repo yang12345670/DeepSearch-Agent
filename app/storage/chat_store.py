@@ -1,40 +1,77 @@
 # -*- coding: utf-8 -*-
-"""Chat history persistence via Supabase.
+"""Chat history persistence via local SQLite.
 
-Provides session CRUD and message storage that survives Redis restarts.
-Agent logic is NOT affected — this is a pure storage layer.
+Stores sessions and messages in `data/chat.db`. No external service required.
+Public API is identical to the previous Supabase-backed implementation, so
+nothing in routes.py / orchestrator.py needs to change.
 """
 
 from __future__ import annotations
 
 import logging
+import sqlite3
+import threading
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Dict, List, Optional
-
-from app.config import settings
 
 logger = logging.getLogger(__name__)
 
-_client = None
+_DB_PATH = Path("data") / "chat.db"
+_init_lock = threading.Lock()
+_initialized = False
 
 
-def _get_client():
-    """Lazy-init Supabase client."""
-    global _client
-    if _client is not None:
-        return _client
-    url = settings.supabase_url
-    key = settings.supabase_key
-    if not url or not key:
-        logger.warning("SUPABASE_URL or SUPABASE_KEY not set, chat history disabled.")
-        return None
-    try:
-        from supabase import create_client
-        _client = create_client(url, key)
-        return _client
-    except Exception as e:
-        logger.warning("Failed to init Supabase client: %s", e)
-        return None
+def _now() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _connect() -> sqlite3.Connection:
+    """Open a new connection. SQLite handles its own locking for short writes."""
+    _ensure_schema()
+    conn = sqlite3.connect(str(_DB_PATH), timeout=5.0)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys = ON")
+    return conn
+
+
+def _ensure_schema() -> None:
+    global _initialized
+    if _initialized:
+        return
+    with _init_lock:
+        if _initialized:
+            return
+        _DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+        conn = sqlite3.connect(str(_DB_PATH), timeout=5.0)
+        try:
+            conn.executescript(
+                """
+                CREATE TABLE IF NOT EXISTS chat_sessions (
+                    session_id  TEXT PRIMARY KEY,
+                    title       TEXT NOT NULL DEFAULT 'New Chat',
+                    preview     TEXT NOT NULL DEFAULT '',
+                    created_at  TEXT NOT NULL,
+                    last_active TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS chat_messages (
+                    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                    session_id  TEXT NOT NULL,
+                    role        TEXT NOT NULL,
+                    content     TEXT NOT NULL,
+                    created_at  TEXT NOT NULL,
+                    FOREIGN KEY (session_id) REFERENCES chat_sessions(session_id) ON DELETE CASCADE
+                );
+                CREATE INDEX IF NOT EXISTS idx_messages_session
+                    ON chat_messages(session_id, created_at);
+                CREATE INDEX IF NOT EXISTS idx_sessions_last_active
+                    ON chat_sessions(last_active DESC);
+                """
+            )
+            conn.commit()
+        finally:
+            conn.close()
+        _initialized = True
 
 
 # ------------------------------------------------------------------
@@ -42,64 +79,81 @@ def _get_client():
 # ------------------------------------------------------------------
 
 def create_session(session_id: str, title: str = "New Chat") -> Optional[Dict]:
-    sb = _get_client()
-    if sb is None:
-        return None
     try:
-        # Check if session already exists — don't overwrite title/preview
-        existing = sb.table("chat_sessions").select("session_id").eq(
-            "session_id", session_id
-        ).execute()
-        if existing.data:
-            return existing.data[0]
-        r = sb.table("chat_sessions").insert({
-            "session_id": session_id,
-            "title": title,
-            "preview": "",
-        }).execute()
-        return r.data[0] if r.data else None
+        conn = _connect()
+        try:
+            existing = conn.execute(
+                "SELECT * FROM chat_sessions WHERE session_id = ?",
+                (session_id,),
+            ).fetchone()
+            if existing:
+                return dict(existing)
+            now = _now()
+            conn.execute(
+                "INSERT INTO chat_sessions (session_id, title, preview, created_at, last_active) "
+                "VALUES (?, ?, '', ?, ?)",
+                (session_id, title, now, now),
+            )
+            conn.commit()
+            row = conn.execute(
+                "SELECT * FROM chat_sessions WHERE session_id = ?",
+                (session_id,),
+            ).fetchone()
+            return dict(row) if row else None
+        finally:
+            conn.close()
     except Exception as e:
         logger.error("create_session failed: %s", e)
         return None
 
 
 def list_sessions() -> List[Dict]:
-    sb = _get_client()
-    if sb is None:
-        return []
     try:
-        r = sb.table("chat_sessions").select("*").order(
-            "last_active", desc=True
-        ).execute()
-        return r.data or []
+        conn = _connect()
+        try:
+            rows = conn.execute(
+                "SELECT * FROM chat_sessions ORDER BY last_active DESC"
+            ).fetchall()
+            return [dict(r) for r in rows]
+        finally:
+            conn.close()
     except Exception as e:
         logger.error("list_sessions failed: %s", e)
         return []
 
 
 def update_session(session_id: str, **fields) -> None:
-    sb = _get_client()
-    if sb is None:
+    if not fields:
         return
     try:
-        fields["last_active"] = datetime.now(timezone.utc).isoformat()
-        sb.table("chat_sessions").update(fields).eq(
-            "session_id", session_id
-        ).execute()
+        conn = _connect()
+        try:
+            fields["last_active"] = _now()
+            cols = ", ".join(f"{k} = ?" for k in fields)
+            params = list(fields.values()) + [session_id]
+            conn.execute(
+                f"UPDATE chat_sessions SET {cols} WHERE session_id = ?",
+                params,
+            )
+            conn.commit()
+        finally:
+            conn.close()
     except Exception as e:
         logger.error("update_session failed: %s", e)
 
 
 def delete_session(session_id: str) -> bool:
-    sb = _get_client()
-    if sb is None:
-        return False
     try:
-        # Messages cascade-deleted via FK
-        sb.table("chat_sessions").delete().eq(
-            "session_id", session_id
-        ).execute()
-        return True
+        conn = _connect()
+        try:
+            conn.execute(
+                "DELETE FROM chat_sessions WHERE session_id = ?",
+                (session_id,),
+            )
+            conn.commit()
+            return True
+        finally:
+            conn.close()
     except Exception as e:
         logger.error("delete_session failed: %s", e)
         return False
@@ -110,36 +164,43 @@ def delete_session(session_id: str) -> bool:
 # ------------------------------------------------------------------
 
 def save_message(session_id: str, role: str, content: str) -> None:
-    sb = _get_client()
-    if sb is None:
-        return
     try:
-        sb.table("chat_messages").insert({
-            "session_id": session_id,
-            "role": role,
-            "content": content,
-        }).execute()
-        # Update session preview & last_active
-        preview = content[:60] if role == "user" else None
-        fields: Dict[str, Any] = {"last_active": datetime.now(timezone.utc).isoformat()}
-        if preview:
-            fields["preview"] = preview
-        sb.table("chat_sessions").update(fields).eq(
-            "session_id", session_id
-        ).execute()
+        conn = _connect()
+        try:
+            now = _now()
+            conn.execute(
+                "INSERT INTO chat_messages (session_id, role, content, created_at) "
+                "VALUES (?, ?, ?, ?)",
+                (session_id, role, content, now),
+            )
+            updates: Dict[str, Any] = {"last_active": now}
+            if role == "user":
+                updates["preview"] = content[:60]
+            cols = ", ".join(f"{k} = ?" for k in updates)
+            params = list(updates.values()) + [session_id]
+            conn.execute(
+                f"UPDATE chat_sessions SET {cols} WHERE session_id = ?",
+                params,
+            )
+            conn.commit()
+        finally:
+            conn.close()
     except Exception as e:
         logger.error("save_message failed: %s", e)
 
 
 def get_messages(session_id: str) -> List[Dict]:
-    sb = _get_client()
-    if sb is None:
-        return []
     try:
-        r = sb.table("chat_messages").select(
-            "role, content, created_at"
-        ).eq("session_id", session_id).order("created_at").execute()
-        return r.data or []
+        conn = _connect()
+        try:
+            rows = conn.execute(
+                "SELECT role, content, created_at FROM chat_messages "
+                "WHERE session_id = ? ORDER BY created_at ASC, id ASC",
+                (session_id,),
+            ).fetchall()
+            return [dict(r) for r in rows]
+        finally:
+            conn.close()
     except Exception as e:
         logger.error("get_messages failed: %s", e)
         return []

@@ -1,15 +1,92 @@
 """Document chunking for RAG.
 
-Sentence-aware splitting: chunks always end at sentence boundaries so the
-LLM receives complete context.  Falls back to character-level split only
-for oversized single sentences (e.g. long code blocks).
+Two strategies:
+  1. Fixed-size splitting (split_documents): chunks at sentence boundaries
+     with a hard character limit. Fast, no model needed.
+  2. Semantic splitting (split_documents_semantic): cuts at topic boundaries
+     detected by embedding similarity drops. Better quality, needs embedder.
 """
 
 from __future__ import annotations
 
+import logging
 import re
 from dataclasses import dataclass, field
-from typing import Any, Dict, Iterable, List
+from typing import Any, Dict, Iterable, List, Literal, Optional
+
+import numpy as np
+
+from app.rag.block_classifier import classify_block
+
+logger = logging.getLogger(__name__)
+
+BlockType = Literal["text", "code", "formula", "table"]
+
+
+# ------------------------------------------------------------------
+# Rule-based block-type classifier (baseline for ML classifier).
+#
+# Scoring rules ported from "第一个项目介绍.md":
+#   - 4-space (or tab) indentation on >=30% of lines: +2
+#   - Has code keywords (def/return/import/class/var/const/...): +3
+#   - Operator density (>=5 in >=60 chars): +1
+#   Score >= 3  →  code
+#
+# Formulas:
+#   - $$...$$ block, or $...$ inline, or LaTeX commands (\frac, \sum, ...): formula
+#
+# Tables:
+#   - >=2 lines with >=2 pipes, plus a separator row containing "---"
+# ------------------------------------------------------------------
+
+_CODE_KEYWORDS = re.compile(
+    r"\b(def|class|return|import|from|function|const|let|var|public|private|"
+    r"async|await|lambda|elif|else|=>|->|::|println|System\.out|console\.log|"
+    r"struct|interface|impl|fn|pub|val|fun)\b"
+)
+_OPERATORS = re.compile(r"[{};=<>+\-*/%&|^!]=?|==|!=|<=|>=|&&|\|\|")
+_FORMULA_LATEX = re.compile(
+    r"\\(frac|sum|int|sqrt|alpha|beta|gamma|Delta|nabla|partial|prod|lim|infty|"
+    r"forall|exists|in|cdot|times|leq|geq|neq|approx|sim|propto|mathbb|mathcal)\b"
+)
+_FORMULA_INLINE = re.compile(r"\$[^$\n]{2,}\$")
+
+
+def classify_block_rule(text: str) -> BlockType:
+    """Heuristic block-type classifier — kept as the baseline against the ML model.
+
+    Order matters: formulas and tables have the most distinctive markers, so
+    we check them first. Code is checked last because keyword-based detection
+    over-recalls on prose containing inline-code spans.
+    """
+    if not text or not text.strip():
+        return "text"
+
+    # --- formula ---
+    if "$$" in text or _FORMULA_INLINE.search(text) or _FORMULA_LATEX.search(text):
+        return "formula"
+
+    # --- table ---
+    pipe_lines = [ln for ln in text.split("\n") if ln.count("|") >= 2]
+    if len(pipe_lines) >= 2:
+        has_sep = any(re.match(r"^\s*\|?[\s\-:|]+$", ln) and "-" in ln for ln in pipe_lines)
+        if has_sep:
+            return "table"
+
+    # --- code (scoring) ---
+    score = 0
+    lines = text.split("\n")
+    indented = sum(1 for ln in lines if re.match(r"^( {2,}|\t)", ln))
+    if len(lines) >= 2 and indented / len(lines) >= 0.3:
+        score += 2
+    if len(_CODE_KEYWORDS.findall(text)) >= 1:
+        score += 3
+    if len(_OPERATORS.findall(text)) >= 5 and len(text) >= 60:
+        score += 1
+    if score >= 3:
+        return "code"
+
+    return "text"
 
 
 @dataclass
@@ -19,6 +96,36 @@ class DocumentChunk:
     chunk_id: str
     text: str
     metadata: Dict[str, Any] = field(default_factory=dict)
+
+
+def _emit_chunk(
+    chunks: List["DocumentChunk"],
+    text: str,
+    doc_idx: int,
+    min_size: int,
+    extra_meta: Optional[Dict[str, Any]] = None,
+) -> None:
+    """Append a DocumentChunk to ``chunks`` with classify_block-derived block_type.
+
+    Silently skips text shorter than ``min_size`` after stripping. Used by both
+    fixed-size and semantic splitters so block_type metadata is consistent.
+    """
+    text = text.strip()
+    if len(text) < min_size:
+        return
+    btype = classify_block(text)
+    metadata: Dict[str, Any] = {
+        "doc_index": doc_idx,
+        "chunk_index": len(chunks),
+        "block_type": btype,
+    }
+    if extra_meta:
+        metadata.update(extra_meta)
+    chunks.append(DocumentChunk(
+        chunk_id=f"doc{doc_idx}_chunk{len(chunks)}",
+        text=text,
+        metadata=metadata,
+    ))
 
 
 # ------------------------------------------------------------------
@@ -136,59 +243,142 @@ def split_documents(
         for sent in sentences:
             sent_len = len(sent)
 
-            # Oversized single sentence → character-level fallback
+            # Oversized single sentence: classify-aware handling.
+            #   code/formula/table  → emit whole block (don't shred semantic units)
+            #   text                → fall back to character split
             if sent_len > chunk_size:
-                # Flush current buffer first
                 if current:
-                    text = "\n".join(current).strip()
-                    if len(text) >= min_chunk_size:
-                        chunks.append(DocumentChunk(
-                            chunk_id=f"doc{doc_idx}_chunk{len(chunks)}",
-                            text=text,
-                            metadata={"doc_index": doc_idx, "chunk_index": len(chunks)},
-                        ))
+                    _emit_chunk(chunks, "\n".join(current), doc_idx, min_chunk_size)
                     current = []
                     current_len = 0
 
-                # Split the long sentence by characters
-                for piece in _char_split(sent, chunk_size, overlap):
-                    if len(piece) >= min_chunk_size:
-                        chunks.append(DocumentChunk(
-                            chunk_id=f"doc{doc_idx}_chunk{len(chunks)}",
-                            text=piece,
-                            metadata={"doc_index": doc_idx, "chunk_index": len(chunks)},
-                        ))
+                btype = classify_block(sent)
+                if btype in ("code", "formula", "table"):
+                    _emit_chunk(chunks, sent, doc_idx, min_chunk_size)
+                else:
+                    for piece in _char_split(sent, chunk_size, overlap):
+                        _emit_chunk(chunks, piece, doc_idx, min_chunk_size)
                 continue
 
-            # Would adding this sentence exceed the limit?
-            # +1 accounts for the "\n" joiner
+            # Normal pack — +1 accounts for the "\n" joiner.
             if current and current_len + sent_len + 1 > chunk_size:
-                # Flush current chunk
-                text = "\n".join(current).strip()
-                if len(text) >= min_chunk_size:
-                    chunks.append(DocumentChunk(
-                        chunk_id=f"doc{doc_idx}_chunk{len(chunks)}",
-                        text=text,
-                        metadata={"doc_index": doc_idx, "chunk_index": len(chunks)},
-                    ))
-
-                # Overlap: carry last N sentences into next chunk
+                _emit_chunk(chunks, "\n".join(current), doc_idx, min_chunk_size)
                 current = current[-overlap_sentences:] if overlap_sentences else []
                 current_len = sum(len(s) for s in current) + max(len(current) - 1, 0)
 
             current.append(sent)
             current_len += sent_len + (1 if len(current) > 1 else 0)
 
-        # Flush remaining
+        # Final flush
         if current:
-            text = "\n".join(current).strip()
-            if len(text) >= min_chunk_size:
-                chunks.append(DocumentChunk(
-                    chunk_id=f"doc{doc_idx}_chunk{len(chunks)}",
-                    text=text,
-                    metadata={"doc_index": doc_idx, "chunk_index": len(chunks)},
-                ))
+            _emit_chunk(chunks, "\n".join(current), doc_idx, min_chunk_size)
 
+    return chunks
+
+
+# ------------------------------------------------------------------
+# Semantic chunking
+# ------------------------------------------------------------------
+
+def split_documents_semantic(
+    documents: Iterable[str],
+    embedder,
+    *,
+    max_chunk_size: int = 800,
+    min_chunk_size: int = 50,
+    similarity_threshold: Optional[float] = None,
+) -> List[DocumentChunk]:
+    """Split documents at semantic boundaries detected by embedding similarity.
+
+    Algorithm:
+      1. Split into sentences (reuses ``_split_into_sentences``).
+      2. Embed every sentence with *embedder*.
+      3. Compute cosine similarity between adjacent sentences.
+      4. Cut where similarity drops below ``mean - 1*std`` (or the given
+         *similarity_threshold*).
+      5. Merge too-short groups into neighbours; split too-long groups
+         with ``_char_split``.
+
+    Args:
+        documents:            iterable of full-text documents.
+        embedder:             object with ``.encode(texts) -> np.ndarray``.
+        max_chunk_size:       hard upper limit (chars) — oversized groups are
+                              re-split with ``_char_split``.
+        min_chunk_size:       groups shorter than this are merged into the
+                              previous group.
+        similarity_threshold: explicit cutoff; ``None`` = auto (mean - std).
+    """
+    chunks: List[DocumentChunk] = []
+
+    for doc_idx, doc in enumerate(documents):
+        if not doc or not doc.strip():
+            continue
+
+        sentences = _split_into_sentences(doc.strip())
+        if not sentences:
+            continue
+
+        # Single sentence or very few — no splitting needed
+        if len(sentences) <= 2:
+            _emit_chunk(chunks, "\n".join(sentences), doc_idx, min_chunk_size)
+            continue
+
+        # --- Embed all sentences ---
+        embeddings = embedder.encode(sentences)  # (N, dim)
+        # L2 normalize for cosine similarity via dot product
+        norms = np.linalg.norm(embeddings, axis=1, keepdims=True)
+        norms = np.maximum(norms, 1e-8)
+        embeddings = embeddings / norms
+
+        # --- Cosine similarity between adjacent sentences ---
+        similarities = np.array([
+            float(np.dot(embeddings[i], embeddings[i + 1]))
+            for i in range(len(sentences) - 1)
+        ])
+
+        # --- Determine threshold ---
+        if similarity_threshold is not None:
+            threshold = similarity_threshold
+        else:
+            threshold = float(similarities.mean() - similarities.std())
+
+        # --- Find split points (where similarity drops below threshold) ---
+        split_indices = [0]  # always start from sentence 0
+        for i, sim in enumerate(similarities):
+            if sim < threshold:
+                split_indices.append(i + 1)
+
+        # --- Build groups ---
+        groups: List[List[str]] = []
+        for idx in range(len(split_indices)):
+            start = split_indices[idx]
+            end = split_indices[idx + 1] if idx + 1 < len(split_indices) else len(sentences)
+            groups.append(sentences[start:end])
+
+        # --- Merge too-short groups into previous ---
+        merged: List[List[str]] = []
+        for group in groups:
+            group_text_len = sum(len(s) for s in group) + max(len(group) - 1, 0)
+            if merged and group_text_len < min_chunk_size:
+                merged[-1].extend(group)
+            else:
+                merged.append(group)
+
+        # --- Emit chunks (split oversized groups) ---
+        for group in merged:
+            text = "\n".join(group).strip()
+            if not text:
+                continue
+            if len(text) <= max_chunk_size:
+                _emit_chunk(chunks, text, doc_idx, min_chunk_size)
+            else:
+                # Oversized group — re-split with char_split (semantic path keeps
+                # its existing behavior; only fixed-size path bypasses split for
+                # code/formula/table per Phase 3 design).
+                for piece in _char_split(text, max_chunk_size, max_chunk_size // 4):
+                    _emit_chunk(chunks, piece, doc_idx, min_chunk_size)
+
+    logger.info("Semantic chunking: %d documents -> %d chunks", doc_idx + 1, len(chunks))
     return chunks
 
 

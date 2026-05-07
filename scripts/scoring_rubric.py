@@ -43,6 +43,14 @@ CAVEAT_PHRASES = [
     "not covered in", "beyond the scope",
 ]
 
+HEDGING_PHRASES = [
+    "可能", "也许", "或许", "大概", "似乎", "好像",
+    "不确定", "不太清楚", "据推测", "猜测",
+    "一般来说", "通常情况下", "理论上",
+    "maybe", "perhaps", "possibly", "might", "could be",
+    "not sure", "uncertain", "presumably", "likely",
+]
+
 
 # ====================================================================
 # Text Helpers
@@ -84,11 +92,23 @@ def _extract_distinctive_terms(text: str, min_len: int = 4) -> List[str]:
 # Judgment: AUTOMATIC
 # ====================================================================
 
-def metric_answer_accuracy(key_points: List[str], answer: str) -> Dict[str, Any]:
+def metric_answer_accuracy(key_points: list, answer: str) -> Dict[str, Any]:
+    """Compute key-point recall.
+
+    Each element of *key_points* can be:
+      - a plain string  ``"并行处理"``
+      - a list of variant strings ``["Thought", "思考"]``
+        (any variant matching counts as a hit for that group)
+    """
     if not key_points:
         return {"score": 1.0, "hits": [], "method": "auto"}
     ans = _norm(answer)
-    hits = [_norm(kp) in ans for kp in key_points]
+    hits: list[bool] = []
+    for kp in key_points:
+        if isinstance(kp, list):
+            hits.append(any(_norm(v) in ans for v in kp))
+        else:
+            hits.append(_norm(kp) in ans)
     score = sum(hits) / len(hits)
     return {"score": round(score, 4), "hits": hits, "method": "auto"}
 
@@ -264,7 +284,7 @@ def metric_correct_refusal(
 
 def metric_partial_answer_compliance(
     answer: str,
-    key_points: List[str],
+    key_points: list,
     case_type: str,
 ) -> Dict[str, Any]:
     if case_type != "partially_supported":
@@ -355,6 +375,95 @@ def metric_context_noise_ratio(
 
 
 # ====================================================================
+# Metric 7: High-Confidence Hallucination Rate  (M7)
+# ====================================================================
+#
+# Definition:
+#   Fraction of claims that are BOTH:
+#     (a) NOT grounded in gold evidence (ungrounded per M2 logic)
+#     (b) stated with high confidence (no hedging phrases)
+#
+#   This catches the most dangerous failure mode: the model confidently
+#   fabricates technical details that a user would trust.
+#
+# Formula:
+#   claims = split_claims(answer)
+#   ungrounded(c)     = ¬∃ e ∈ gold_evidence : overlap(c, e)
+#   high_confidence(c) = ¬∃ h ∈ HEDGING_PHRASES : h ⊂ c
+#   hallucinated(c)    = ungrounded(c) AND high_confidence(c)
+#   M7 = |{c : hallucinated(c)}| / max(|claims|, 1)
+#   Lower is better. 0.0 = no high-confidence hallucinations.
+#
+# Key difference from M3:
+#   M3 checks against retrieved_context (may contain noise).
+#   M7 checks against gold_evidence (ground truth) AND filters by
+#   confidence level, so hedged guesses don't count.
+#
+# Judgment: AUTOMATIC
+# ====================================================================
+
+def metric_high_confidence_hallucination(
+    answer: str,
+    gold_evidence_texts: List[str],
+) -> Dict[str, Any]:
+    claims = _split_claims(answer)
+    if not claims:
+        return {
+            "score": 0.0,
+            "total_claims": 0,
+            "hallucinated_claims": 0,
+            "hallucinations": [],
+            "method": "auto_heuristic",
+        }
+
+    # If the answer is a refusal, it's not a hallucination
+    is_refusal = any(_norm(p) in _norm(answer) for p in REFUSAL_PHRASES)
+    if is_refusal:
+        return {
+            "score": 0.0,
+            "total_claims": len(claims),
+            "hallucinated_claims": 0,
+            "hallucinations": [],
+            "ungrounded_hedged": [],
+            "reason": "refusal_not_hallucination",
+            "method": "auto_heuristic",
+        }
+
+    hallucinations: List[str] = []
+    ungrounded_hedged: List[str] = []  # ungrounded but hedged (less dangerous)
+
+    for c in claims:
+        # Skip caveat/disclaimer claims — "文档中未提及" is not a hallucination
+        c_norm = _norm(c)
+        is_caveat = any(_norm(p) in c_norm for p in CAVEAT_PHRASES)
+        if is_caveat:
+            continue
+
+        # Check grounding against gold evidence
+        grounded = any(_has_overlap(c, e) for e in gold_evidence_texts)
+        if grounded:
+            continue
+
+        # Check confidence: is there any hedging language in this claim?
+        has_hedge = any(_norm(h) in c_norm for h in HEDGING_PHRASES)
+
+        if has_hedge:
+            ungrounded_hedged.append(c)
+        else:
+            hallucinations.append(c)
+
+    score = len(hallucinations) / max(len(claims), 1)
+    return {
+        "score": round(score, 4),
+        "total_claims": len(claims),
+        "hallucinated_claims": len(hallucinations),
+        "hallucinations": hallucinations,
+        "ungrounded_hedged": ungrounded_hedged,
+        "method": "auto_heuristic",
+    }
+
+
+# ====================================================================
 # Composite Score
 # ====================================================================
 
@@ -373,6 +482,7 @@ class RubricResult:
     m4_refusal: Dict[str, Any] = field(default_factory=dict)
     m5_partial: Dict[str, Any] = field(default_factory=dict)
     m6_noise: Dict[str, Any] = field(default_factory=dict)
+    m7_hallucination: Dict[str, Any] = field(default_factory=dict)
 
     # Composite
     composite_score: float = 0.0
@@ -392,6 +502,7 @@ class RubricResult:
             "m4_refusal": self.m4_refusal,
             "m5_partial": self.m5_partial,
             "m6_noise": self.m6_noise,
+            "m7_hallucination": self.m7_hallucination,
             "composite_score": self.composite_score,
             "all_pass": self.all_pass,
             "error": self.error,
@@ -405,21 +516,21 @@ class RubricResult:
 # Each case type emphasizes different metrics.
 # Weights sum to 1.0 within each case type.
 #
-#                     M1     M2     M3     M4     M5     M6
-# fully_supported   [0.40,  0.30,  0.15,  0.15,  0.00,  0.00]
-# partially_sup     [0.25,  0.15,  0.10,  0.10,  0.40,  0.00]
-# unsupported       [0.00,  0.00,  0.00,  1.00,  0.00,  0.00]
-# noisy_context     [0.30,  0.20,  0.10,  0.10,  0.00,  0.30]
+#                     M1     M2     M3     M4     M5     M6     M7
+# fully_supported   [0.35,  0.25,  0.10,  0.10,  0.00,  0.00,  0.20]
+# partially_sup     [0.20,  0.15,  0.05,  0.10,  0.35,  0.00,  0.15]
+# unsupported       [0.00,  0.00,  0.00,  1.00,  0.00,  0.00,  0.00]
+# noisy_context     [0.25,  0.15,  0.05,  0.10,  0.00,  0.25,  0.20]
 #
-# Note: M3 (unsupported claim rate) and M6 (noise ratio) are
-# "lower is better" — we invert them: contribution = 1 - score
+# Note: M3 (unsupported claim rate), M6 (noise ratio), M7 (hallucination rate)
+# are "lower is better" — we invert them: contribution = 1 - score
 # ====================================================================
 
 WEIGHTS = {
-    "fully_supported":     {"m1": 0.40, "m2": 0.30, "m3": 0.15, "m4": 0.15, "m5": 0.00, "m6": 0.00},
-    "partially_supported": {"m1": 0.25, "m2": 0.15, "m3": 0.10, "m4": 0.10, "m5": 0.40, "m6": 0.00},
-    "unsupported":         {"m1": 0.00, "m2": 0.00, "m3": 0.00, "m4": 1.00, "m5": 0.00, "m6": 0.00},
-    "noisy_context":       {"m1": 0.30, "m2": 0.20, "m3": 0.10, "m4": 0.10, "m5": 0.00, "m6": 0.30},
+    "fully_supported":     {"m1": 0.35, "m2": 0.25, "m3": 0.10, "m4": 0.10, "m5": 0.00, "m6": 0.00, "m7": 0.20},
+    "partially_supported": {"m1": 0.20, "m2": 0.15, "m3": 0.05, "m4": 0.10, "m5": 0.35, "m6": 0.00, "m7": 0.15},
+    "unsupported":         {"m1": 0.00, "m2": 0.00, "m3": 0.00, "m4": 1.00, "m5": 0.00, "m6": 0.00, "m7": 0.00},
+    "noisy_context":       {"m1": 0.25, "m2": 0.15, "m3": 0.05, "m4": 0.10, "m5": 0.00, "m6": 0.25, "m7": 0.20},
 }
 
 # Pass thresholds per metric
@@ -430,6 +541,7 @@ THRESHOLDS = {
     "m4": 1.0,   # must be exactly correct
     "m5": 0.5,   # ≥0.5 partial compliance
     "m6": 0.1,   # ≤10% noise leaked  (inverted: score ≤ 0.1)
+    "m7": 0.2,   # ≤20% high-confidence hallucinations  (inverted: score ≤ 0.2)
 }
 
 
@@ -478,15 +590,19 @@ class Rubric:
         # M6: Context Noise Ratio
         r.m6_noise = metric_context_noise_ratio(model_answer, noise, gold, case)
 
-        # Composite score (weighted, M3 and M6 inverted)
+        # M7: High-Confidence Hallucination Rate
+        r.m7_hallucination = metric_high_confidence_hallucination(model_answer, gold)
+
+        # Composite score (weighted, M3/M6/M7 inverted)
         w = WEIGHTS.get(case, WEIGHTS["fully_supported"])
         composite = (
             w["m1"] * r.m1_accuracy["score"]
             + w["m2"] * r.m2_groundedness["score"]
-            + w["m3"] * (1.0 - r.m3_unsupported["score"])  # invert: lower is better
+            + w["m3"] * (1.0 - r.m3_unsupported["score"])      # invert: lower is better
             + w["m4"] * r.m4_refusal["score"]
             + w["m5"] * r.m5_partial["score"]
-            + w["m6"] * (1.0 - r.m6_noise["score"])        # invert: lower is better
+            + w["m6"] * (1.0 - r.m6_noise["score"])            # invert: lower is better
+            + w["m7"] * (1.0 - r.m7_hallucination["score"])    # invert: lower is better
         )
         r.composite_score = round(composite, 4)
 
@@ -498,6 +614,7 @@ class Rubric:
             and (r.m4_refusal["score"] >= THRESHOLDS["m4"] or w["m4"] == 0)
             and (r.m5_partial["score"] >= THRESHOLDS["m5"] or w["m5"] == 0)
             and (r.m6_noise["score"] <= THRESHOLDS["m6"] or w["m6"] == 0)
+            and (r.m7_hallucination["score"] <= THRESHOLDS["m7"] or w["m7"] == 0)
         )
 
         return r
@@ -585,6 +702,8 @@ def _demo():
         print(f"  M4 Refusal:      {r.m4_refusal['score']:.2f}  ({r.m4_refusal['reason']})")
         print(f"  M5 Partial:      {r.m5_partial['score']:.2f}  ({r.m5_partial['reason']})")
         print(f"  M6 Noise:        {r.m6_noise['score']:.2f}  (lower=better)")
+        print(f"  M7 Hallucinate:  {r.m7_hallucination['score']:.2f}  (lower=better)"
+              f"  [{r.m7_hallucination.get('hallucinated_claims', 0)}/{r.m7_hallucination.get('total_claims', 0)} claims]")
         print(f"  Composite:       {r.composite_score:.2f}")
         print(f"  All Pass:        {r.all_pass}")
 
