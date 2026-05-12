@@ -1,0 +1,1197 @@
+{
+  "summary": {
+    "tag": "distilbert",
+    "samples": 68,
+    "top_k": 5,
+    "hit1": 0.5147058823529411,
+    "hit5": 0.5735294117647058,
+    "mrr": 0.5355392156862746,
+    "precision_at_5": 0.4852941176470588,
+    "by_block_type": {
+      "text": {
+        "total": 34,
+        "hit5": 34,
+        "hit5_rate": 1.0
+      },
+      "MISS": {
+        "total": 29,
+        "hit5": 0,
+        "hit5_rate": 0.0
+      },
+      "table": {
+        "total": 4,
+        "hit5": 4,
+        "hit5_rate": 1.0
+      },
+      "code": {
+        "total": 1,
+        "hit5": 1,
+        "hit5_rate": 1.0
+      }
+    },
+    "retrieved_block_dist": {
+      "text": 327,
+      "table": 5,
+      "code": 4,
+      "formula": 4
+    }
+  },
+  "per_sample": [
+    {
+      "id": null,
+      "question": "在智能体系统中，Redis 通常被用来充当什么角色？",
+      "answer": "short-term memory",
+      "rank": 1,
+      "hit1": true,
+      "hit5": true,
+      "p5": 0.2,
+      "first_hit_block_type": "text",
+      "retrieved_block_types": [
+        "text",
+        "text",
+        "text",
+        "text",
+        "text"
+      ]
+    },
+    {
+      "id": null,
+      "question": "Redis 存储智能体记忆时，通常保存哪三类数据？",
+      "answer": "recent conversation turns, tool traces, and task state",
+      "rank": 1,
+      "hit1": true,
+      "hit5": true,
+      "p5": 0.2,
+      "first_hit_block_type": "text",
+      "retrieved_block_types": [
+        "text",
+        "text",
+        "text",
+        "text",
+        "text"
+      ]
+    },
+    {
+      "id": null,
+      "question": "Hybrid RAG 中用于精确关键词匹配的稀疏检索方法是什么？",
+      "answer": "BM25",
+      "rank": 1,
+      "hit1": true,
+      "hit5": true,
+      "p5": 0.8,
+      "first_hit_block_type": "text",
+      "retrieved_block_types": [
+        "text",
+        "text",
+        "text",
+        "text",
+        "text"
+      ]
+    },
+    {
+      "id": null,
+      "question": "Hybrid RAG 中用于提升最终相关性的重排序模型是什么类型？",
+      "answer": "cross-encoder reranker",
+      "rank": 0,
+      "hit1": false,
+      "hit5": false,
+      "p5": 0.4,
+      "first_hit_block_type": "MISS",
+      "retrieved_block_types": [
+        "text",
+        "text",
+        "text",
+        "text",
+        "text"
+      ]
+    },
+    {
+      "id": null,
+      "question": "Kafka 的设计特点是什么类型的日志处理？",
+      "answer": "high-throughput append-only log processing",
+      "rank": 1,
+      "hit1": true,
+      "hit5": true,
+      "p5": 0.4,
+      "first_hit_block_type": "text",
+      "retrieved_block_types": [
+        "text",
+        "text",
+        "text",
+        "text",
+        "text"
+      ]
+    },
+    {
+      "id": null,
+      "question": "Pulsar 在什么场景下比 Kafka 更受青睐？",
+      "answer": "geo-replication and storage-compute separation",
+      "rank": 1,
+      "hit1": true,
+      "hit5": true,
+      "p5": 0.2,
+      "first_hit_block_type": "text",
+      "retrieved_block_types": [
+        "text",
+        "text",
+        "text",
+        "text",
+        "text"
+      ]
+    },
+    {
+      "id": null,
+      "question": "根据认知心理学，人类的感觉记忆持续时间是多久？",
+      "answer": "0.5-3秒",
+      "rank": 1,
+      "hit1": true,
+      "hit5": true,
+      "p5": 0.8,
+      "first_hit_block_type": "text",
+      "retrieved_block_types": [
+        "text",
+        "text",
+        "text",
+        "text",
+        "text"
+      ]
+    },
+    {
+      "id": null,
+      "question": "人类工作记忆的容量限制是多少个项目？",
+      "answer": "7±2个项目",
+      "rank": 1,
+      "hit1": true,
+      "hit5": true,
+      "p5": 0.6,
+      "first_hit_block_type": "text",
+      "retrieved_block_types": [
+        "text",
+        "text",
+        "text",
+        "text",
+        "text"
+      ]
+    },
+    {
+      "id": null,
+      "question": "人类工作记忆的持续时间大约是多久？",
+      "answer": "15-30秒",
+      "rank": 1,
+      "hit1": true,
+      "hit5": true,
+      "p5": 0.8,
+      "first_hit_block_type": "text",
+      "retrieved_block_types": [
+        "text",
+        "text",
+        "text",
+        "text",
+        "text"
+      ]
+    },
+    {
+      "id": null,
+      "question": "HelloAgents记忆系统中，用于高性能语义检索的向量存储后端是什么？",
+      "answer": "QdrantVectorStore",
+      "rank": 1,
+      "hit1": true,
+      "hit5": true,
+      "p5": 0.4,
+      "first_hit_block_type": "table",
+      "retrieved_block_types": [
+        "table",
+        "text",
+        "text",
+        "text",
+        "text"
+      ]
+    },
+    {
+      "id": null,
+      "question": "HelloAgents记忆系统中，用于知识图谱管理的图存储后端是什么？",
+      "answer": "Neo4jGraphStore",
+      "rank": 1,
+      "hit1": true,
+      "hit5": true,
+      "p5": 0.4,
+      "first_hit_block_type": "table",
+      "retrieved_block_types": [
+        "table",
+        "text",
+        "text",
+        "text",
+        "text"
+      ]
+    },
+    {
+      "id": null,
+      "question": "HelloAgents嵌入服务层中，用于轻量级兜底的嵌入方案是什么？",
+      "answer": "TFIDFEmbedding",
+      "rank": 1,
+      "hit1": true,
+      "hit5": true,
+      "p5": 0.2,
+      "first_hit_block_type": "table",
+      "retrieved_block_types": [
+        "table",
+        "text",
+        "text",
+        "text",
+        "text"
+      ]
+    },
+    {
+      "id": null,
+      "question": "HelloAgents RAG系统的智能问答层使用了哪些多策略检索方式？",
+      "answer": "向量检索 + MQE + HyDE",
+      "rank": 3,
+      "hit1": false,
+      "hit5": true,
+      "p5": 0.2,
+      "first_hit_block_type": "table",
+      "retrieved_block_types": [
+        "text",
+        "text",
+        "table",
+        "text",
+        "text"
+      ]
+    },
+    {
+      "id": null,
+      "question": "上下文工程（Context Engineering）的 GSSC 流水线包含哪四个步骤？",
+      "answer": "Gather-Select-Structure-Compress",
+      "rank": 1,
+      "hit1": true,
+      "hit5": true,
+      "p5": 0.6,
+      "first_hit_block_type": "text",
+      "retrieved_block_types": [
+        "text",
+        "text",
+        "text",
+        "text",
+        "text"
+      ]
+    },
+    {
+      "id": null,
+      "question": "安装 HelloAgents 上下文工程章节对应的版本需要什么命令？",
+      "answer": "pip install \"hello-agents[all]==0.2.8\"",
+      "rank": 1,
+      "hit1": true,
+      "hit5": true,
+      "p5": 1.0,
+      "first_hit_block_type": "text",
+      "retrieved_block_types": [
+        "text",
+        "text",
+        "text",
+        "text",
+        "text"
+      ]
+    },
+    {
+      "id": null,
+      "question": "上下文腐蚀（context rot）指的是什么现象？",
+      "answer": "随着上下文窗口中的 tokens 增加，模型从上下文中准确回忆信息的能力反而下降",
+      "rank": 1,
+      "hit1": true,
+      "hit5": true,
+      "p5": 0.4,
+      "first_hit_block_type": "text",
+      "retrieved_block_types": [
+        "text",
+        "text",
+        "text",
+        "text",
+        "text"
+      ]
+    },
+    {
+      "id": null,
+      "question": "Transformer 的自注意力机制中，Q、K、V 分别代表什么角色？",
+      "answer": "Query",
+      "rank": 1,
+      "hit1": true,
+      "hit5": true,
+      "p5": 1.0,
+      "first_hit_block_type": "text",
+      "retrieved_block_types": [
+        "text",
+        "text",
+        "text",
+        "code",
+        "formula"
+      ]
+    },
+    {
+      "id": null,
+      "question": "N-gram 模型中，Bigram 对应的 N 值是多少？",
+      "answer": "N=2",
+      "rank": 1,
+      "hit1": true,
+      "hit5": true,
+      "p5": 0.8,
+      "first_hit_block_type": "text",
+      "retrieved_block_types": [
+        "text",
+        "text",
+        "text",
+        "formula",
+        "formula"
+      ]
+    },
+    {
+      "id": null,
+      "question": "马尔可夫假设的核心思想是什么？",
+      "answer": "一个词的出现概率只与它前面有限的",
+      "rank": 1,
+      "hit1": true,
+      "hit5": true,
+      "p5": 0.4,
+      "first_hit_block_type": "text",
+      "retrieved_block_types": [
+        "text",
+        "text",
+        "text",
+        "formula",
+        "text"
+      ]
+    },
+    {
+      "id": null,
+      "question": "LSTM 中用于决定丢弃哪些信息的门控机制叫什么？",
+      "answer": "遗忘门",
+      "rank": 1,
+      "hit1": true,
+      "hit5": true,
+      "p5": 1.0,
+      "first_hit_block_type": "text",
+      "retrieved_block_types": [
+        "text",
+        "text",
+        "text",
+        "text",
+        "text"
+      ]
+    },
+    {
+      "id": null,
+      "question": "MCP（Model Context Protocol）是由哪个团队提出的？",
+      "answer": "Anthropic",
+      "rank": 1,
+      "hit1": true,
+      "hit5": true,
+      "p5": 1.0,
+      "first_hit_block_type": "text",
+      "retrieved_block_types": [
+        "text",
+        "text",
+        "text",
+        "text",
+        "text"
+      ]
+    },
+    {
+      "id": null,
+      "question": "A2A（Agent-to-Agent Protocol）是由哪个团队提出的？",
+      "answer": "Google",
+      "rank": 1,
+      "hit1": true,
+      "hit5": true,
+      "p5": 1.0,
+      "first_hit_block_type": "text",
+      "retrieved_block_types": [
+        "text",
+        "text",
+        "text",
+        "text",
+        "text"
+      ]
+    },
+    {
+      "id": null,
+      "question": "MCP 的设计哲学核心理念是什么？",
+      "answer": "上下文共享",
+      "rank": 1,
+      "hit1": true,
+      "hit5": true,
+      "p5": 0.8,
+      "first_hit_block_type": "text",
+      "retrieved_block_types": [
+        "text",
+        "text",
+        "text",
+        "text",
+        "text"
+      ]
+    },
+    {
+      "id": null,
+      "question": "安装 HelloAgents 通信协议版本需要什么命令？",
+      "answer": "pip install \"hello-agents[protocol]==0.2.2\"",
+      "rank": 0,
+      "hit1": false,
+      "hit5": false,
+      "p5": 1.0,
+      "first_hit_block_type": "MISS",
+      "retrieved_block_types": [
+        "text",
+        "text",
+        "text",
+        "text",
+        "text"
+      ]
+    },
+    {
+      "id": null,
+      "question": "MCP 架构的三层分别是什么？",
+      "answer": "宿主层",
+      "rank": 2,
+      "hit1": false,
+      "hit5": true,
+      "p5": 1.0,
+      "first_hit_block_type": "text",
+      "retrieved_block_types": [
+        "text",
+        "text",
+        "text",
+        "text",
+        "text"
+      ]
+    },
+    {
+      "id": null,
+      "question": "深度研究助手的智能体层包含哪三个专门 Agent？",
+      "answer": "TODO Planner、Task Summarizer、Report Writer",
+      "rank": 1,
+      "hit1": true,
+      "hit5": true,
+      "p5": 0.2,
+      "first_hit_block_type": "text",
+      "retrieved_block_types": [
+        "text",
+        "text",
+        "text",
+        "text",
+        "text"
+      ]
+    },
+    {
+      "id": null,
+      "question": "深度研究助手能将 1-2 小时的研究工作压缩到多长时间？",
+      "answer": "5-10 分钟",
+      "rank": 1,
+      "hit1": true,
+      "hit5": true,
+      "p5": 1.0,
+      "first_hit_block_type": "text",
+      "retrieved_block_types": [
+        "text",
+        "text",
+        "text",
+        "text",
+        "text"
+      ]
+    },
+    {
+      "id": null,
+      "question": "深度研究助手后端的 API 路由端点是什么？",
+      "answer": "/research/stream",
+      "rank": 1,
+      "hit1": true,
+      "hit5": true,
+      "p5": 0.4,
+      "first_hit_block_type": "text",
+      "retrieved_block_types": [
+        "text",
+        "code",
+        "text",
+        "text",
+        "text"
+      ]
+    },
+    {
+      "id": null,
+      "question": "深度研究助手的前端技术栈是什么？",
+      "answer": "Vue3+TypeScript",
+      "rank": 1,
+      "hit1": true,
+      "hit5": true,
+      "p5": 0.4,
+      "first_hit_block_type": "text",
+      "retrieved_block_types": [
+        "text",
+        "text",
+        "text",
+        "text",
+        "text"
+      ]
+    },
+    {
+      "id": null,
+      "question": "HelloAgents 框架要求的最低 Python 版本是多少？",
+      "answer": "Python 3.10+",
+      "rank": 0,
+      "hit1": false,
+      "hit5": false,
+      "p5": 1.0,
+      "first_hit_block_type": "MISS",
+      "retrieved_block_types": [
+        "text",
+        "text",
+        "text",
+        "text",
+        "text"
+      ]
+    },
+    {
+      "id": null,
+      "question": "智能体的四个基本要素是什么？",
+      "answer": "环境、传感器、执行器、自主性",
+      "rank": 0,
+      "hit1": false,
+      "hit5": false,
+      "p5": 0.0,
+      "first_hit_block_type": "MISS",
+      "retrieved_block_types": [
+        "text",
+        "text",
+        "text",
+        "text",
+        "text"
+      ]
+    },
+    {
+      "id": null,
+      "question": "智能体循环（Agent Loop）的四个步骤是什么？",
+      "answer": "感知、思考、行动、观察",
+      "rank": 0,
+      "hit1": false,
+      "hit5": false,
+      "p5": 0.0,
+      "first_hit_block_type": "MISS",
+      "retrieved_block_types": [
+        "text",
+        "text",
+        "text",
+        "text",
+        "text"
+      ]
+    },
+    {
+      "id": null,
+      "question": "物理符号系统假说（PSSH）是由谁在哪一年提出的？",
+      "answer": "艾伦·纽厄尔和赫伯特·西蒙于1976年提出",
+      "rank": 0,
+      "hit1": false,
+      "hit5": false,
+      "p5": 0.0,
+      "first_hit_block_type": "MISS",
+      "retrieved_block_types": [
+        "text",
+        "text",
+        "text",
+        "text",
+        "text"
+      ]
+    },
+    {
+      "id": null,
+      "question": "MYCIN系统包含多少条 IF-THEN 规则？",
+      "answer": "600条",
+      "rank": 1,
+      "hit1": true,
+      "hit5": true,
+      "p5": 0.2,
+      "first_hit_block_type": "text",
+      "retrieved_block_types": [
+        "text",
+        "text",
+        "text",
+        "text",
+        "text"
+      ]
+    },
+    {
+      "id": null,
+      "question": "ELIZA 是由谁在哪一年开发的？",
+      "answer": "约瑟夫·魏泽鲍姆于1966年开发",
+      "rank": 0,
+      "hit1": false,
+      "hit5": false,
+      "p5": 0.4,
+      "first_hit_block_type": "MISS",
+      "retrieved_block_types": [
+        "text",
+        "text",
+        "text",
+        "text",
+        "text"
+      ]
+    },
+    {
+      "id": null,
+      "question": "马文·明斯基的《心智社会》一书提出的核心观点是什么？",
+      "answer": "智能是由大量简单的、无心的心智过程协同工作产生的涌现现象",
+      "rank": 0,
+      "hit1": false,
+      "hit5": false,
+      "p5": 0.0,
+      "first_hit_block_type": "MISS",
+      "retrieved_block_types": [
+        "text",
+        "text",
+        "text",
+        "text",
+        "text"
+      ]
+    },
+    {
+      "id": null,
+      "question": "强化学习的核心要素包括哪些？",
+      "answer": "智能体、环境、状态、行动、奖励",
+      "rank": 0,
+      "hit1": false,
+      "hit5": false,
+      "p5": 0.0,
+      "first_hit_block_type": "MISS",
+      "retrieved_block_types": [
+        "text",
+        "text",
+        "text",
+        "text",
+        "text"
+      ]
+    },
+    {
+      "id": null,
+      "question": "ReAct 范式是由谁在哪一年提出的？",
+      "answer": "Shunyu Yao于2022年提出",
+      "rank": 1,
+      "hit1": true,
+      "hit5": true,
+      "p5": 0.4,
+      "first_hit_block_type": "text",
+      "retrieved_block_types": [
+        "text",
+        "text",
+        "text",
+        "text",
+        "text"
+      ]
+    },
+    {
+      "id": null,
+      "question": "ReAct 范式的工作流程是什么循环？",
+      "answer": "Thought → Action → Observation 循环",
+      "rank": 0,
+      "hit1": false,
+      "hit5": false,
+      "p5": 0.0,
+      "first_hit_block_type": "MISS",
+      "retrieved_block_types": [
+        "text",
+        "text",
+        "text",
+        "text",
+        "text"
+      ]
+    },
+    {
+      "id": null,
+      "question": "Plan-and-Solve 范式包含哪两个核心阶段？",
+      "answer": "规划阶段和执行阶段",
+      "rank": 0,
+      "hit1": false,
+      "hit5": false,
+      "p5": 0.6,
+      "first_hit_block_type": "MISS",
+      "retrieved_block_types": [
+        "text",
+        "text",
+        "text",
+        "text",
+        "text"
+      ]
+    },
+    {
+      "id": null,
+      "question": "Reflection 范式的三步循环是什么？",
+      "answer": "执行、反思、优化",
+      "rank": 0,
+      "hit1": false,
+      "hit5": false,
+      "p5": 0.0,
+      "first_hit_block_type": "MISS",
+      "retrieved_block_types": [
+        "text",
+        "text",
+        "text",
+        "text",
+        "text"
+      ]
+    },
+    {
+      "id": null,
+      "question": "Coze（扣子）平台是否支持 MCP 协议？",
+      "answer": "不支持",
+      "rank": 1,
+      "hit1": true,
+      "hit5": true,
+      "p5": 1.0,
+      "first_hit_block_type": "text",
+      "retrieved_block_types": [
+        "text",
+        "text",
+        "text",
+        "text",
+        "text"
+      ]
+    },
+    {
+      "id": null,
+      "question": "Dify 平台的核心定位是什么？",
+      "answer": "开源综合 LLM 应用开发和运维平台",
+      "rank": 0,
+      "hit1": false,
+      "hit5": false,
+      "p5": 0.4,
+      "first_hit_block_type": "MISS",
+      "retrieved_block_types": [
+        "text",
+        "text",
+        "text",
+        "text",
+        "text"
+      ]
+    },
+    {
+      "id": null,
+      "question": "Dify 平台支持多少个以上的开源和商用模型？",
+      "answer": "100+",
+      "rank": 0,
+      "hit1": false,
+      "hit5": false,
+      "p5": 0.8,
+      "first_hit_block_type": "MISS",
+      "retrieved_block_types": [
+        "text",
+        "text",
+        "text",
+        "text",
+        "text"
+      ]
+    },
+    {
+      "id": null,
+      "question": "n8n 中的 Node（节点）是什么？",
+      "answer": "最小的执行单元，具有特定功能",
+      "rank": 0,
+      "hit1": false,
+      "hit5": false,
+      "p5": 0.4,
+      "first_hit_block_type": "MISS",
+      "retrieved_block_types": [
+        "text",
+        "text",
+        "text",
+        "text",
+        "text"
+      ]
+    },
+    {
+      "id": null,
+      "question": "AutoGen 的设计哲学是什么？",
+      "answer": "对话驱动协作",
+      "rank": 1,
+      "hit1": true,
+      "hit5": true,
+      "p5": 1.0,
+      "first_hit_block_type": "text",
+      "retrieved_block_types": [
+        "text",
+        "text",
+        "text",
+        "text",
+        "text"
+      ]
+    },
+    {
+      "id": null,
+      "question": "AgentScope 是由哪个团队开发的？",
+      "answer": "阿里巴巴达摩院",
+      "rank": 1,
+      "hit1": true,
+      "hit5": true,
+      "p5": 0.4,
+      "first_hit_block_type": "text",
+      "retrieved_block_types": [
+        "text",
+        "text",
+        "text",
+        "text",
+        "text"
+      ]
+    },
+    {
+      "id": null,
+      "question": "CAMEL 框架中的两个核心角色分别是什么？",
+      "answer": "AI User（需求提供者）和 AI Assistant（执行者）",
+      "rank": 0,
+      "hit1": false,
+      "hit5": false,
+      "p5": 0.0,
+      "first_hit_block_type": "MISS",
+      "retrieved_block_types": [
+        "text",
+        "text",
+        "text",
+        "text",
+        "text"
+      ]
+    },
+    {
+      "id": null,
+      "question": "LangGraph 的三个核心组件是什么？",
+      "answer": "State（状态）、Nodes（节点）、Edges（边）",
+      "rank": 0,
+      "hit1": false,
+      "hit5": false,
+      "p5": 0.0,
+      "first_hit_block_type": "MISS",
+      "retrieved_block_types": [
+        "text",
+        "text",
+        "text",
+        "text",
+        "text"
+      ]
+    },
+    {
+      "id": null,
+      "question": "HelloAgents 框架的核心设计原则中，统一的抽象是什么？",
+      "answer": "除核心 Agent 外，一切皆为 Tool",
+      "rank": 0,
+      "hit1": false,
+      "hit5": false,
+      "p5": 0.0,
+      "first_hit_block_type": "MISS",
+      "retrieved_block_types": [
+        "text",
+        "text",
+        "text",
+        "text",
+        "text"
+      ]
+    },
+    {
+      "id": null,
+      "question": "GUI Agent 与传统 RPA 的核心区别是什么？",
+      "answer": "GUI Agent 基于视觉理解，RPA 基于固定选择器",
+      "rank": 0,
+      "hit1": false,
+      "hit5": false,
+      "p5": 1.0,
+      "first_hit_block_type": "MISS",
+      "retrieved_block_types": [
+        "table",
+        "text",
+        "text",
+        "text",
+        "text"
+      ]
+    },
+    {
+      "id": null,
+      "question": "GUI Agent 在真实场景中的成功率大约是多少？",
+      "answer": "40-50%",
+      "rank": 1,
+      "hit1": true,
+      "hit5": true,
+      "p5": 0.8,
+      "first_hit_block_type": "text",
+      "retrieved_block_types": [
+        "text",
+        "text",
+        "text",
+        "text",
+        "text"
+      ]
+    },
+    {
+      "id": null,
+      "question": "GUI Agent 的核心架构分为哪三个阶段？",
+      "answer": "感知、推理、执行",
+      "rank": 0,
+      "hit1": false,
+      "hit5": false,
+      "p5": 0.0,
+      "first_hit_block_type": "MISS",
+      "retrieved_block_types": [
+        "text",
+        "text",
+        "text",
+        "text",
+        "text"
+      ]
+    },
+    {
+      "id": null,
+      "question": "Agentic RL 中，传统监督学习（SL）的主要局限是什么？",
+      "answer": "数据质量瓶颈、缺乏探索能力、难以长期优化",
+      "rank": 0,
+      "hit1": false,
+      "hit5": false,
+      "p5": 0.0,
+      "first_hit_block_type": "MISS",
+      "retrieved_block_types": [
+        "text",
+        "text",
+        "text",
+        "text",
+        "text"
+      ]
+    },
+    {
+      "id": null,
+      "question": "GRPO 的全称是什么？",
+      "answer": "Group Relative Policy Optimization",
+      "rank": 1,
+      "hit1": true,
+      "hit5": true,
+      "p5": 0.2,
+      "first_hit_block_type": "text",
+      "retrieved_block_types": [
+        "text",
+        "text",
+        "code",
+        "text",
+        "text"
+      ]
+    },
+    {
+      "id": null,
+      "question": "GSM8K 数据集包含多少道数学问题？",
+      "answer": "8500道",
+      "rank": 0,
+      "hit1": false,
+      "hit5": false,
+      "p5": 0.8,
+      "first_hit_block_type": "MISS",
+      "retrieved_block_types": [
+        "text",
+        "text",
+        "text",
+        "text",
+        "text"
+      ]
+    },
+    {
+      "id": null,
+      "question": "BFCL 评测基准的四个评测类别是什么？",
+      "answer": "Simple、Multiple、Parallel、Irrelevance",
+      "rank": 4,
+      "hit1": false,
+      "hit5": true,
+      "p5": 0.8,
+      "first_hit_block_type": "text",
+      "retrieved_block_types": [
+        "text",
+        "text",
+        "text",
+        "text",
+        "text"
+      ]
+    },
+    {
+      "id": null,
+      "question": "GAIA 基准测试包含多少个真实世界问题？",
+      "answer": "466个",
+      "rank": 0,
+      "hit1": false,
+      "hit5": false,
+      "p5": 1.0,
+      "first_hit_block_type": "MISS",
+      "retrieved_block_types": [
+        "text",
+        "text",
+        "text",
+        "text",
+        "text"
+      ]
+    },
+    {
+      "id": null,
+      "question": "智能旅行助手使用了哪四个专门的 Agent？",
+      "answer": "AttractionSearchAgent、WeatherQueryAgent、HotelAgent、PlannerAgent",
+      "rank": 0,
+      "hit1": false,
+      "hit5": false,
+      "p5": 0.6,
+      "first_hit_block_type": "MISS",
+      "retrieved_block_types": [
+        "text",
+        "text",
+        "text",
+        "text",
+        "text"
+      ]
+    },
+    {
+      "id": null,
+      "question": "赛博小镇中 NPC 的工作记忆（WorkingMemory）容量和过期时间分别是多少？",
+      "answer": "10条消息，120分钟过期",
+      "rank": 0,
+      "hit1": false,
+      "hit5": false,
+      "p5": 0.2,
+      "first_hit_block_type": "MISS",
+      "retrieved_block_types": [
+        "text",
+        "text",
+        "text",
+        "text",
+        "text"
+      ]
+    },
+    {
+      "id": null,
+      "question": "赛博小镇的好感度系统分为哪五个等级？",
+      "answer": "陌生人、熟悉、友好、亲密、挚友",
+      "rank": 0,
+      "hit1": false,
+      "hit5": false,
+      "p5": 0.0,
+      "first_hit_block_type": "MISS",
+      "retrieved_block_types": [
+        "text",
+        "text",
+        "text",
+        "text",
+        "text"
+      ]
+    },
+    {
+      "id": null,
+      "question": "赛博小镇使用什么游戏引擎开发前端？",
+      "answer": "Godot 4.5",
+      "rank": 1,
+      "hit1": true,
+      "hit5": true,
+      "p5": 1.0,
+      "first_hit_block_type": "text",
+      "retrieved_block_types": [
+        "text",
+        "text",
+        "text",
+        "text",
+        "text"
+      ]
+    },
+    {
+      "id": null,
+      "question": "Agent 应用开发中，\"Less is More\" 的核心教训是什么？",
+      "answer": "过度工程化会导致系统在复杂循环中失败，应从最简可行链路开始",
+      "rank": 0,
+      "hit1": false,
+      "hit5": false,
+      "p5": 0.0,
+      "first_hit_block_type": "MISS",
+      "retrieved_block_types": [
+        "text",
+        "text",
+        "text",
+        "text",
+        "text"
+      ]
+    },
+    {
+      "id": null,
+      "question": "专家系统中，正向链（Forward Chaining）和反向链（Backward Chaining）分别是什么驱动方式？",
+      "answer": "正向链是数据驱动，反向链是目标驱动",
+      "rank": 0,
+      "hit1": false,
+      "hit5": false,
+      "p5": 0.6,
+      "first_hit_block_type": "MISS",
+      "retrieved_block_types": [
+        "text",
+        "text",
+        "text",
+        "text",
+        "text"
+      ]
+    },
+    {
+      "id": null,
+      "question": "神经符号主义 AI（Neuro-Symbolic AI）的特点是什么？",
+      "answer": "结合符号主义的可解释性与亚符号主义的学习能力",
+      "rank": 0,
+      "hit1": false,
+      "hit5": false,
+      "p5": 0.4,
+      "first_hit_block_type": "MISS",
+      "retrieved_block_types": [
+        "text",
+        "text",
+        "text",
+        "text",
+        "text"
+      ]
+    },
+    {
+      "id": null,
+      "question": "Letta 公司于何时发布了 AI Agent 技术栈？",
+      "answer": "2024年11月",
+      "rank": 1,
+      "hit1": true,
+      "hit5": true,
+      "p5": 0.8,
+      "first_hit_block_type": "text",
+      "retrieved_block_types": [
+        "text",
+        "text",
+        "text",
+        "text",
+        "text"
+      ]
+    },
+    {
+      "id": null,
+      "question": "Dify 平台使用什么加密标准来保障企业级安全？",
+      "answer": "AES-256",
+      "rank": 1,
+      "hit1": true,
+      "hit5": true,
+      "p5": 0.2,
+      "first_hit_block_type": "text",
+      "retrieved_block_types": [
+        "text",
+        "text",
+        "text",
+        "text",
+        "text"
+      ]
+    },
+    {
+      "id": null,
+      "question": "赛博小镇的批量生成优化中，NPC 背景对话每隔多久更新一次？",
+      "answer": "5分钟",
+      "rank": 3,
+      "hit1": false,
+      "hit5": true,
+      "p5": 0.4,
+      "first_hit_block_type": "code",
+      "retrieved_block_types": [
+        "text",
+        "text",
+        "code",
+        "text",
+        "text"
+      ]
+    }
+  ]
+}

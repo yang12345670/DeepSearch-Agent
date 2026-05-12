@@ -1,0 +1,48 @@
+{
+  "per_class": {
+    "text": {
+      "precision": 0.9775280898876404,
+      "recall": 0.9456521739130435,
+      "f1": 0.9613259668508287,
+      "support": 92
+    },
+    "code": {
+      "precision": 0.9655172413793104,
+      "recall": 0.9333333333333333,
+      "f1": 0.9491525423728815,
+      "support": 30
+    },
+    "formula": {
+      "precision": 0.8125,
+      "recall": 1.0,
+      "f1": 0.896551724137931,
+      "support": 13
+    },
+    "table": {
+      "precision": 0.875,
+      "recall": 1.0,
+      "f1": 0.9333333333333333,
+      "support": 7
+    }
+  },
+  "accuracy": 0.9507042253521126,
+  "macro_f1": 0.9350908916737437,
+  "confusion": {
+    "text": {
+      "text": 87,
+      "table": 1,
+      "formula": 3,
+      "code": 1
+    },
+    "code": {
+      "code": 28,
+      "text": 2
+    },
+    "formula": {
+      "formula": 13
+    },
+    "table": {
+      "table": 7
+    }
+  }
+}
