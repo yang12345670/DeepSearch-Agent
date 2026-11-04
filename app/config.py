@@ -6,7 +6,6 @@ All settings can be overridden via environment variables or .env file.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional
 
 from pydantic import BaseModel, Field
 
@@ -68,10 +67,6 @@ def _env_int(key: str, default: int) -> int:
 class Settings(BaseModel):
     """Runtime settings — all values sourced from environment / .env."""
 
-    # Supabase (chat history)
-    supabase_url: str = Field(default_factory=lambda: _env("SUPABASE_URL", ""))
-    supabase_key: str = Field(default_factory=lambda: _env("SUPABASE_KEY", ""))
-
     # LLM
     llm_provider: str = Field(default_factory=lambda: _env("LLM_PROVIDER", "local"))
     llm_api_key: str = Field(default_factory=lambda: _env("LLM_API_KEY", ""))
@@ -107,11 +102,8 @@ class Settings(BaseModel):
     # Data paths
     docs_dir: str = Field(default_factory=lambda: _env("DOCS_DIR", "data/docs"))
     index_dir: str = Field(default_factory=lambda: _env("INDEX_DIR", "data/index"))
-    processed_dir: str = "data/processed"
     chunks_json_path: str = Field(default_factory=lambda: _env("INDEX_DIR", "data/index") + "/chunks.json")
-    processed_chunks_json_path: str = "data/processed/chunks.json"
     faiss_index_path: str = Field(default_factory=lambda: _env("INDEX_DIR", "data/index") + "/faiss.index")
-    embeddings_npy_path: str = Field(default_factory=lambda: _env("INDEX_DIR", "data/index") + "/embeddings.npy")
 
     # Context window / token budget
     context_window_tokens: int = Field(
@@ -123,9 +115,6 @@ class Settings(BaseModel):
     token_budget_history_ratio: float = Field(
         default_factory=lambda: _env_float("TOKEN_BUDGET_HISTORY_RATIO", 0.25),
     )
-    token_budget_memory_ratio: float = Field(
-        default_factory=lambda: _env_float("TOKEN_BUDGET_MEMORY_RATIO", 0.15),
-    )
 
     # Planner
     planner_enabled: bool = Field(
@@ -134,7 +123,6 @@ class Settings(BaseModel):
 
     # Memory
     redis_url: str = Field(default_factory=lambda: _env("REDIS_URL", "redis://localhost:6379/0"))
-    short_term_max_rounds: int = Field(default_factory=lambda: _env_int("SHORT_TERM_MAX_ROUNDS", 8))
 
     # Finance data sources (Tier 1: SEC EDGAR + Alpha Vantage)
     edgar_user_agent: str = Field(default_factory=lambda: _env("EDGAR_USER_AGENT", ""))
@@ -151,7 +139,6 @@ class Settings(BaseModel):
     def ensure_data_dirs(self) -> None:
         Path(self.docs_dir).mkdir(parents=True, exist_ok=True)
         Path(self.index_dir).mkdir(parents=True, exist_ok=True)
-        Path(self.processed_dir).mkdir(parents=True, exist_ok=True)
 
     def ensure_finance_dirs(self) -> None:
         Path(self.finance_docs_dir).mkdir(parents=True, exist_ok=True)

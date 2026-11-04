@@ -58,10 +58,6 @@ def refine_once(
 class Refiner:
     """Refiner wrapper for agent pipeline."""
 
-    def refine(self, contexts: List[str]) -> List[str]:
-        """Legacy helper: keep top contexts."""
-        return contexts[:3]
-
     def should_refine(self, verifier_result: Dict[str, Any]) -> bool:
         return should_refine(verifier_result)
 
@@ -79,4 +75,3 @@ class Refiner:
             current_top_k=current_top_k,
             expanded_top_k=expanded_top_k,
         )
-

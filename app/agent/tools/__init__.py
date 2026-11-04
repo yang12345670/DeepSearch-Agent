@@ -28,7 +28,7 @@ Tool functions should:
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
@@ -97,10 +97,6 @@ def register_tool(
 
 def get_tool(name: str) -> Optional[Tool]:
     return TOOLS_REGISTRY.get(name)
-
-
-def get_all_tools() -> List[Tool]:
-    return list(TOOLS_REGISTRY.values())
 
 
 def get_openai_tools_schema() -> List[Dict[str, Any]]:

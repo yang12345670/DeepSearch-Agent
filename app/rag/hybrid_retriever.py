@@ -11,7 +11,6 @@ Implements:
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
 from typing import Dict, List, Sequence, Tuple
 
 import numpy as np
@@ -21,15 +20,6 @@ from app.rag.chunker import DocumentChunk
 from app.rag.dense_retriever import DenseRetriever
 
 logger = logging.getLogger(__name__)
-
-
-@dataclass
-class HybridCandidate:
-    chunk: DocumentChunk
-    fused_score: float
-
-    bm25_norm: float
-    dense_norm: float
 
 
 def _min_max_normalize(values: Sequence[float]) -> List[float]:
@@ -139,4 +129,3 @@ class HybridRetriever:
         )
 
         return result
-

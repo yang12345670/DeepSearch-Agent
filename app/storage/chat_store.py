@@ -2,8 +2,6 @@
 """Chat history persistence via local SQLite.
 
 Stores sessions and messages in `data/chat.db`. No external service required.
-Public API is identical to the previous Supabase-backed implementation, so
-nothing in routes.py / orchestrator.py needs to change.
 """
 
 from __future__ import annotations

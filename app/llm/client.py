@@ -16,7 +16,6 @@ import logging
 from typing import Any, Dict, Generator, List, Optional
 
 from app.config import settings
-from app.llm.prompts import build_answer_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -203,20 +202,8 @@ class LLMClient:
         full = self._local_fallback(system_prompt, user_message)
         yield full
 
-    def generate(self, query: str, contexts: List[str], *, recent_context: Optional[str] = None) -> str:
-        """Legacy interface -- kept for backward compatibility."""
-        _ = build_answer_prompt(query, contexts, recent_context=recent_context)
-        if not contexts:
-            return "\u6211\u6682\u65f6\u6ca1\u6709\u68c0\u7d22\u5230\u53ef\u7528\u4e0a\u4e0b\u6587\u3002\u4f60\u7684\u95ee\u9898\u662f\uff1a" + query
-        context_block = "\n".join("- " + chunk for chunk in contexts[:3])
-        return (
-            "\u57fa\u4e8e\u68c0\u7d22\u5230\u7684\u6587\u6863\uff0c\u6211\u7684\u56de\u7b54\u5982\u4e0b\uff1a\n"
-            + context_block + "\n\n"
-            + "\u9488\u5bf9\u4f60\u7684\u95ee\u9898\u300c" + query + "\u300d\uff0c\u8bf7\u5148\u53c2\u8003\u4ee5\u4e0a\u4fe1\u606f\u3002"
-        )
-
     # ------------------------------------------------------------------
-    # Local deterministic fallback (no API, for testing)
+    # Local deterministic fallback when no API client is available
     # ------------------------------------------------------------------
 
     @staticmethod

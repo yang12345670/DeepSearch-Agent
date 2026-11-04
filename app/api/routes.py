@@ -19,8 +19,6 @@ from app.api.schemas import (
     ChatHistoryResponse,
     ChatRequest,
     ChatResponse,
-    EvalRequest,
-    EvalResponse,
     KnowledgeFile,
     KnowledgeListResponse,
     SessionInfo,
@@ -50,7 +48,7 @@ for _exts in _ALLOWED_EXTENSIONS.values():
 
 @router.post("/chat", response_model=ChatResponse)
 def chat(req: ChatRequest) -> ChatResponse:
-    """Chat endpoint — dispatches to orchestrator (legacy) or react (tool-use)."""
+    """Chat endpoint — dispatches to orchestrator or ReAct tool use."""
     session_id = getattr(req, "session_id", None) or "default"
     user_id = getattr(req, "user_id", None) or "default"
     mode = (getattr(req, "mode", None) or "orchestrator").lower()
@@ -83,7 +81,7 @@ def chat(req: ChatRequest) -> ChatResponse:
             ],
         )
 
-    # Default: legacy orchestrator path
+    # Default: orchestrator path
     pipeline = get_agent_pipeline()
     use_rag = getattr(req, "use_rag", True)
     result = pipeline.run(
@@ -163,7 +161,7 @@ def chat_stream(req: ChatRequest):
                 })
                 return
 
-            # 1. Retrieve + filter (same as rag_answer)
+            # 1. Retrieve + filter
             kb = pipeline.knowledge_base
             candidates = kb.retrieve(req.query)
             filtered = filter_retrieved_docs(
@@ -227,7 +225,7 @@ def _sse(event: str, data: dict) -> str:
 
 
 # ------------------------------------------------------------------
-# Chat history (Supabase)
+# Chat history (SQLite)
 # ------------------------------------------------------------------
 
 @router.get("/chat/sessions", response_model=SessionListResponse)
@@ -345,57 +343,3 @@ def list_knowledge() -> KnowledgeListResponse:
         )
 
     return KnowledgeListResponse(files=items, total=len(items))
-
-
-# ------------------------------------------------------------------
-# Evaluation endpoint
-# ------------------------------------------------------------------
-
-@router.post("/eval/query", response_model=EvalResponse)
-def eval_query(req: EvalRequest) -> EvalResponse:
-    """Evaluation endpoint: returns raw retrieved chunks + model answer.
-
-    Unlike /chat, this endpoint:
-    - Skips short-term/long-term memory (pure RAG evaluation)
-    - Returns the raw retrieved chunk texts and scores
-    - Does NOT save to memory (no side effects)
-    """
-    from app.agent.context_builder import (
-        SYSTEM_PROMPT,
-        build_final_context,
-        filter_retrieved_docs,
-        parse_llm_response,
-    )
-
-    pipeline = get_agent_pipeline()
-    kb = pipeline.knowledge_base
-
-    # 1. Retrieve + rerank with requested top_k (not limited by settings.rag_top_k)
-    candidates = kb.retrieve(query=req.question, top_n=req.top_k)
-
-    # 2. Get top_k results
-    top_k_results = candidates[: req.top_k]
-
-    retrieved_context = [chunk.text for chunk, _ in top_k_results]
-    retrieved_scores = [round(float(score), 4) for _, score in top_k_results]
-
-    # 3. Filter for LLM context (normal threshold)
-    filtered = filter_retrieved_docs(candidates, score_threshold=0.1, max_docs=5, score_gap_ratio=0.4)
-    evidence_texts = [chunk.text for chunk, _ in filtered]
-
-    # 4. Generate answer via LLM
-    final_context = build_final_context(
-        query=req.question,
-        evidence_texts=evidence_texts,
-    )
-    raw = pipeline.llm.generate_with_context(
-        system_prompt=SYSTEM_PROMPT,
-        user_message=final_context,
-    )
-    _, final_answer, _ = parse_llm_response(raw)
-
-    return EvalResponse(
-        answer=final_answer,
-        retrieved_context=retrieved_context,
-        retrieved_scores=retrieved_scores,
-    )

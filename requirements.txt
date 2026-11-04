@@ -9,8 +9,8 @@ rank-bm25
 jieba
 numpy
 redis
-supabase
-# Optional: for FAISS-backed dense/long-term memory
+reportlab
+# Persistent document and memory indexes
 faiss-cpu
 # Finance ingestion (Tier 1: SEC EDGAR + Alpha Vantage)
 edgartools

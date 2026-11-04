@@ -76,7 +76,7 @@ class Citation:
 
 @dataclass
 class RAGResult:
-    """Parsed, structured output from rag_answer().
+    """Structured answer returned by the RAG agent and orchestrator.
 
     Fields:
         answer:        Clean user-facing text (from FINAL_ANSWER block).
@@ -166,10 +166,6 @@ class TokenBudget:
     evidence: int
     history: int
     memory: int
-
-    @property
-    def allocated(self) -> int:
-        return self.system_prompt + self.user_question + self.evidence + self.history + self.memory
 
 
 def compute_token_budget(
@@ -561,104 +557,3 @@ def parse_llm_response(raw: str) -> Tuple[str, str, List[str]]:
         len(debug_trace), len(final_answer), len(evidence_used),
     )
     return debug_trace, final_answer, evidence_used
-
-
-# ---------------------------------------------------------------------------
-# Single-pass RAG answer
-# ---------------------------------------------------------------------------
-
-def rag_answer(
-    *,
-    query: str,
-    knowledge_base,
-    llm_client,
-    long_term_memory: str = "",
-    short_term_memory: str = "",
-    score_threshold: float = 0.1,
-    max_docs: int = 5,
-) -> RAGResult:
-    """One-shot evidence-grounded answer.
-
-    Flow: retrieve -> filter -> build context (budget-aware) -> generate -> parse.
-    No planner, no verifier, no refiner.
-
-    Returns:
-        RAGResult with parsed answer, debug_trace, and evidence_used.
-    """
-    # 1. Retrieve
-    candidates = knowledge_base.retrieve(query)
-
-    # 2. Filter
-    filtered = filter_retrieved_docs(
-        candidates,
-        score_threshold=score_threshold,
-        max_docs=max_docs,
-    )
-    evidence_texts = [chunk.text for chunk, _ in filtered]
-
-    logger.info(
-        "\n===== POST-FILTER (score >= %.2f, max %d) =====\n"
-        "Before filter: %d chunks\n"
-        "After filter: %d chunks\n%s\n"
-        "================================================",
-        score_threshold, max_docs,
-        len(candidates), len(filtered),
-        "\n".join(
-            "  [Selected] %s  score=%.4f  text=%.60s" % (
-                c.chunk_id, s, c.text[:60]
-            ) for c, s in filtered
-        ) if filtered else "  (none — all below threshold or empty)",
-    )
-
-    # 3. Build context (budget-aware)
-    final_context = build_final_context(
-        query=query,
-        evidence_texts=evidence_texts,
-        long_term_memory=long_term_memory,
-        short_term_memory=short_term_memory,
-    )
-
-    # 4. Generate — log the FULL prompt exactly as sent to the model
-    logger.info(
-        "\n===== FINAL LLM INPUT =====\n"
-        "<System Prompt>\n%s\n\n"
-        "<User Message (contains query + evidence + memory)>\n%s\n"
-        "===========================",
-        SYSTEM_PROMPT,
-        final_context,
-    )
-    raw = llm_client.generate_with_context(
-        system_prompt=SYSTEM_PROMPT,
-        user_message=final_context,
-    )
-    logger.info(
-        "\n===== LLM RAW OUTPUT (%d chars) =====\n%s\n"
-        "=====================================",
-        len(raw), raw,
-    )
-
-    # 5. Parse — always use the parser, never pass raw output through
-    debug_trace, final_answer, evidence_from_llm = parse_llm_response(raw)
-    logger.info("Parsed final_answer (%d chars): %s", len(final_answer), final_answer)
-    logger.info("Parsed debug_trace (%d chars), evidence=%d items",
-                len(debug_trace), len(evidence_from_llm))
-
-    # evidence_used: prefer LLM-cited list; fall back to retrieval-side texts
-    evidence_used = evidence_from_llm if evidence_from_llm else evidence_texts
-
-    # Build citations from filtered chunks
-    citations = [
-        Citation(
-            id=i + 1,
-            source=chunk.metadata.get("source", "unknown"),
-            text=chunk.text[:200].strip(),
-        )
-        for i, (chunk, _) in enumerate(filtered)
-    ]
-
-    return RAGResult(
-        answer=final_answer,
-        debug_trace=debug_trace,
-        evidence_used=evidence_used,
-        citations=citations,
-    )

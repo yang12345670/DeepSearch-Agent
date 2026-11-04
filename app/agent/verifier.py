@@ -13,11 +13,7 @@ from typing import Any, Dict, List
 
 
 class Verifier:
-    """Verifier with both legacy and structured APIs."""
-
-    def verify(self, contexts: List[str]) -> bool:
-        """Legacy boolean verifier used by old flow."""
-        return len(contexts) > 0
+    """Structured verification of evidence support and answer coverage."""
 
     def verify_answer(
         self,
@@ -147,4 +143,3 @@ class Verifier:
             seen.add(t)
             out.append(t)
         return out[:80]
-

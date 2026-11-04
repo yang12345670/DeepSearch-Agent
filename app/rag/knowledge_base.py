@@ -1,19 +1,18 @@
 """Knowledge base: maintains chunks + metadata and orchestrates RAG search.
 
-Supports loading from persisted index (`data/index/chunks.json` + `faiss.index`)
-or building from in-memory documents (for quick demos).
+Loads chunks and embeddings from the persisted knowledge index.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Iterable, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
 import logging
 
 from app.config import settings
 from app.rag.bm25_retriever import BM25Retriever
-from app.rag.chunker import DocumentChunk, split_documents
+from app.rag.chunker import DocumentChunk
 from app.rag.dense_retriever import DenseRetriever
 from app.rag.hybrid_retriever import HybridRetriever
 from app.rag.index_store import load_chunks_json
@@ -23,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 
 class KnowledgeBase:
-    """Minimal in-memory KB for runnable skeleton."""
+    """Hybrid retrieval and reranking over the active knowledge corpus."""
 
     def __init__(
         self,
@@ -72,20 +71,6 @@ class KnowledgeBase:
             embedding_backend=backend,
             embedding_dim=dim,
             faiss_index_path=str(fpath),
-        )
-
-    @classmethod
-    def from_documents(cls, documents: Iterable[str]) -> "KnowledgeBase":
-        """Build from raw documents without persistence (for demo)."""
-        chunks = split_documents(documents, chunk_size=500, overlap=100)
-        # DenseRetriever will require FAISS; so this path is only valid if you
-        # have ingested and loaded persisted index. Keep for API completeness.
-        return cls(
-            chunks=chunks,
-            embedding_model_name=settings.embedding_model_name,
-            embedding_backend=None,
-            embedding_dim=384,
-            faiss_index_path=None,
         )
 
     def retrieve(
@@ -137,22 +122,3 @@ class KnowledgeBase:
         )
 
         return reranked
-
-    def search(
-        self,
-        query: str,
-        *,
-        top_k_bm25: Optional[int] = None,
-        top_k_dense: Optional[int] = None,
-        top_k_fusion: Optional[int] = None,
-        top_n: Optional[int] = None,
-    ) -> List[str]:
-        """Return final context texts after hybrid + rerank."""
-        reranked = self.retrieve(
-            query,
-            top_k_bm25=top_k_bm25,
-            top_k_dense=top_k_dense,
-            top_k_fusion=top_k_fusion,
-            top_n=top_n,
-        )
-        return [c.text for c, _ in reranked]

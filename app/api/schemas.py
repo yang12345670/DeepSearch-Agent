@@ -27,7 +27,7 @@ class ChatRequest(BaseModel):
     mode: str = Field(
         default="orchestrator",
         description=(
-            "Agent dispatch mode: 'orchestrator' (legacy Planner→RAG→Summarizer, "
+            "Agent dispatch mode: 'orchestrator' (Planner→RAG→Summarizer, "
             "default) or 'react' (LLM-driven tool-use loop with pluggable tools)."
         ),
     )
@@ -94,27 +94,6 @@ class UploadResponse(BaseModel):
     message: str
     files_saved: List[str] = Field(default_factory=list)
     chunks_indexed: int = 0
-
-
-class EvalRequest(BaseModel):
-    """POST /eval/query request body."""
-
-    question: str = Field(..., description="Evaluation question.")
-    top_k: int = Field(default=5, description="Number of chunks to retrieve.")
-
-
-class EvalResponse(BaseModel):
-    """POST /eval/query response body."""
-
-    answer: str = Field(default="", description="Model-generated answer.")
-    retrieved_context: List[str] = Field(
-        default_factory=list,
-        description="Top-k retrieved chunk texts (before LLM, after rerank).",
-    )
-    retrieved_scores: List[float] = Field(
-        default_factory=list,
-        description="Corresponding reranker scores.",
-    )
 
 
 class SessionInfo(BaseModel):

@@ -1,30 +1,17 @@
 # -*- coding: utf-8 -*-
-"""RAG pipeline — pure stateless retrieval + generation tool.
-
-This module is a TOOL for the Agent layer (orchestrator.py).
-It does NOT do planning, decomposition, or multi-step reasoning.
-
-Single-pass flow: retrieve -> filter -> build context -> LLM answer -> parse.
-"""
+"""Shared factories for the orchestrator and ReAct runtime."""
 
 from __future__ import annotations
 
 import logging
 from typing import Optional
 
-from app.agent.context_builder import rag_answer, RAGResult
 from app.agent.orchestrator import AgentOrchestrator
+from app.config import settings
 from app.llm.client import LLMClient
 from app.rag.knowledge_base import KnowledgeBase
 
 logger = logging.getLogger(__name__)
-
-SEED_DOCUMENTS = [
-    "DeepSearch Agent 是一个结合检索与生成的问答系统。",
-    "RAG 典型流程包括文档切分、检索、融合重排和大模型回答。",
-    "FastAPI 可以快速搭建 Python Web API，并通过 /chat 接口提供服务。",
-]
-
 
 _pipeline_instance: Optional[AgentOrchestrator] = None
 _react_executor_instance = None
@@ -57,23 +44,11 @@ def get_agent_pipeline() -> AgentOrchestrator:
         if kb is None:
             kb = KnowledgeBase(
                 chunks=[],
-                embedding_model_name="sentence-transformers/all-MiniLM-L6-v2",
+                embedding_model_name=settings.embedding_model_name,
                 embedding_backend=None,
-                embedding_dim=384,
+                embedding_dim=settings.embedding_dim,
                 faiss_index_path=None,
             )
-            from app.rag.chunker import split_documents
-            from app.rag.bm25_retriever import BM25Retriever
-            from app.rag.dense_retriever import DenseRetriever
-            from app.rag.hybrid_retriever import HybridRetriever
-
-            kb.chunks = split_documents(SEED_DOCUMENTS, chunk_size=500, overlap=100)
-            kb.bm25 = BM25Retriever(kb.chunks)
-            kb.dense = DenseRetriever(
-                kb.chunks,
-                model_name="sentence-transformers/all-MiniLM-L6-v2",
-                embedding_dim=384,
-            )
-            kb.hybrid = HybridRetriever(kb.bm25, kb.dense)
+            logger.info("No persisted index found; using an empty knowledge base.")
         _pipeline_instance = AgentOrchestrator(kb)
     return _pipeline_instance

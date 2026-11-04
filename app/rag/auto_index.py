@@ -8,7 +8,6 @@ a full re-ingestion: chunk → embed → FAISS index → persist.
 
 from __future__ import annotations
 
-import hashlib
 import json
 import logging
 import os
@@ -72,7 +71,7 @@ def _safe_id(s: str) -> str:
     return base or "doc"
 
 
-def _chunk_from_source(text: str, source: str, embedder=None) -> List[DocumentChunk]:
+def _chunk_from_source(text: str, source: str) -> List[DocumentChunk]:
     from app.rag.chunker import split_documents
     chunks = split_documents([text], chunk_size=256, overlap=64)
 
@@ -112,7 +111,7 @@ def rebuild_index() -> int:
         logger.warning("auto_index: No .txt/.md files under %s", settings.docs_dir)
         return 0
 
-    # Create embedder early — needed for both semantic chunking and indexing
+    # Encode document chunks for the persisted index.
     force_hash = os.environ.get("DEEPSEARCH_EMBED_FORCE_HASH", "").lower() in (
         "1", "true", "yes",
     )
@@ -122,7 +121,7 @@ def rebuild_index() -> int:
 
     chunks: List[DocumentChunk] = []
     for rel_path, content in files:
-        chunks.extend(_chunk_from_source(content, rel_path, embedder=embedder))
+        chunks.extend(_chunk_from_source(content, rel_path))
 
     if not chunks:
         logger.warning("auto_index: No chunks produced (all docs empty?)")
