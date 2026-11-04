@@ -38,10 +38,10 @@
 
 ```mermaid
 flowchart LR
-    S["文档 · 公告 · 新闻摘要"] --> I["资料入库<br/>切分 → 向量化 → 索引"]
-    I --> R["证据检索<br/>BM25 + 向量召回 → 重排"]
+    S["本地文档<br/>公告 · 新闻摘要"] --> I["切分与向量化<br/>构建索引"]
+    I --> R["混合检索<br/>BM25 + 向量<br/>融合与重排"]
     Q["用户问题"] --> R
-    R --> A["生成回答<br/>组织证据 → LLM → 来源引用"]
+    R --> A["LLM 生成<br/>回答与来源"]
 
     classDef input fill:#f1f5f9,stroke:#94a3b8,color:#0f172a
     classDef process fill:#eff6ff,stroke:#60a5fa,color:#1e3a8a

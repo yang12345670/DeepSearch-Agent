@@ -38,10 +38,10 @@ The default corpus in `data/docs/` contains technical learning material. Ingest 
 
 ```mermaid
 flowchart LR
-    S["Documents · Filings · News"] --> I["Ingest<br/>Chunk → Embed → Index"]
-    I --> R["Retrieve<br/>BM25 + Vectors → Rerank"]
+    S["Documents<br/>Filings · News"] --> I["Chunk & embed<br/>Build index"]
+    I --> R["Hybrid search<br/>BM25 + vectors<br/>Fuse & rerank"]
     Q["User question"] --> R
-    R --> A["Answer<br/>Evidence → LLM → References"]
+    R --> A["LLM generation<br/>Answer & sources"]
 
     classDef input fill:#f1f5f9,stroke:#94a3b8,color:#0f172a
     classDef process fill:#eff6ff,stroke:#60a5fa,color:#1e3a8a
