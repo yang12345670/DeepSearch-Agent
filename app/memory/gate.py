@@ -15,7 +15,9 @@ from __future__ import annotations
 import logging
 import re
 from dataclasses import dataclass
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
+
+from app.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -82,7 +84,7 @@ def score_memory(content: str) -> GateResult:
     score = int(is_tech) + int(is_design) + int(is_persistent)
 
     return GateResult(
-        passed=(score >= 1),  # threshold applied by gate_filter
+        passed=(score >= settings.memory_gate_threshold),
         score=score,
         is_technical_decision=is_tech,
         is_system_design=is_design,
@@ -93,7 +95,7 @@ def score_memory(content: str) -> GateResult:
 def gate_filter(
     candidates: List[Dict[str, Any]],
     *,
-    threshold: int = 1,
+    threshold: Optional[int] = None,
 ) -> List[Dict[str, Any]]:
     """Filter memory candidates through the quality gate.
 
@@ -104,6 +106,7 @@ def gate_filter(
     Returns:
         Candidates that passed the gate, with gate_score added to metadata.
     """
+    threshold = settings.memory_gate_threshold if threshold is None else threshold
     passed: List[Dict[str, Any]] = []
 
     for c in candidates:

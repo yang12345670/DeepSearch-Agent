@@ -11,6 +11,8 @@ from __future__ import annotations
 import re
 from typing import Any, Dict, List
 
+from app.config import settings
+
 
 class Verifier:
     """Structured verification of evidence support and answer coverage."""
@@ -98,15 +100,15 @@ class Verifier:
 
         # unsupported claims: rough heuristic from low evidence consistency.
         unsupported_claims: List[str] = []
-        if evidence_consistency_score < 0.5 and draft_answer.strip():
+        if evidence_consistency_score < settings.verifier_evidence_threshold and draft_answer.strip():
             unsupported_claims.append("部分结论与证据重合度较低，可能存在无证据支撑的断言。")
         if not evidence_texts:
             unsupported_claims.append("未提供可用证据，答案无法被证据验证。")
 
         # pass rule from requirement:
         # if evidence insufficient OR coverage insufficient => pass=false
-        evidence_enough = len(evidence_texts) > 0 and evidence_consistency_score >= 0.5
-        coverage_enough = coverage_score >= 0.8
+        evidence_enough = len(evidence_texts) > 0 and evidence_consistency_score >= settings.verifier_evidence_threshold
+        coverage_enough = coverage_score >= settings.verifier_coverage_threshold
         passed = evidence_enough and coverage_enough
 
         suggestion_parts: List[str] = []
@@ -114,7 +116,7 @@ class Verifier:
             suggestion_parts.append("补充更相关证据后再回答，或显式标注证据不足。")
         if not coverage_enough:
             suggestion_parts.append("逐一覆盖每个子问题，避免漏答。")
-        if uncertainty_score > 0.6:
+        if uncertainty_score > settings.verifier_uncertainty_threshold:
             suggestion_parts.append("减少不确定措辞，改为基于证据的确定表述。")
         suggestion = " ".join(suggestion_parts) if suggestion_parts else "答案可通过当前验证。"
 

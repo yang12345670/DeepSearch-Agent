@@ -2,7 +2,7 @@
 
 Steps:
 1) Read .txt/.md files under data/docs (recursive)
-2) Chunk texts (chunk_size=256, overlap=64)
+2) Chunk texts using the configured size and overlap
 3) Embed each chunk using local embeddings (sentence-transformers or hash fallback)
 4) Write FAISS index to `data/index/faiss.index`
 5) Write chunk_id/text/metadata to `data/index/chunks.json`
@@ -10,7 +10,6 @@ Steps:
 
 from __future__ import annotations
 
-import os
 import sys
 from pathlib import Path
 
@@ -39,7 +38,7 @@ def _safe_id(s: str) -> str:
 def chunk_from_source(text: str, source: str) -> list[DocumentChunk]:
     """Chunk one document and attach metadata including source path."""
     from app.rag.chunker import split_documents
-    chunks = split_documents([text], chunk_size=256, overlap=64)
+    chunks = split_documents([text])
 
     out: list[DocumentChunk] = []
     for i, c in enumerate(chunks):
@@ -66,8 +65,11 @@ def main() -> None:
         return
 
     # Encode document chunks for the persisted index.
-    force_hash = os.environ.get("DEEPSEARCH_EMBED_FORCE_HASH", "").lower() in ("1", "true", "yes")
-    embedder = get_embedding_model(settings.embedding_model_name, force_hash=force_hash, dim=384)
+    embedder = get_embedding_model(
+        settings.embedding_model_name,
+        force_hash=settings.embedding_force_hash,
+        dim=settings.embedding_dim,
+    )
 
     chunks: list[DocumentChunk] = []
     for rel_path, content in files:

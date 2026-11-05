@@ -41,7 +41,6 @@ _ACCESSION = re.compile(r"\d{10}-\d{2}-\d{6}\Z")
 _TICKER = re.compile(r"[A-Z][A-Z0-9.-]{0,14}\Z")
 _REQUEST_LOCK = threading.Lock()
 _LAST_REQUEST = 0.0
-_CACHE_TTL = 3600
 
 
 def _iso_date(value: str) -> date:
@@ -54,7 +53,7 @@ def _arguments(ticker, metrics, limit, as_of):
     if not isinstance(ticker, str) or not _TICKER.fullmatch(ticker.strip().upper()):
         raise ValueError("ticker must be a US stock symbol, e.g. AAPL")
     if metrics is None:
-        metrics = list(METRIC_TAGS)
+        metrics = list(settings.financial_default_metrics)
     if (not isinstance(metrics, list) or not metrics
             or any(not isinstance(m, str) or m not in METRIC_TAGS for m in metrics)):
         raise ValueError("metrics must be a non-empty list of supported financial facts")
@@ -138,12 +137,14 @@ def _select_fact(metric: str, observations: dict, start: str, end: str, cik: str
     return base
 
 
-def normalize_company_facts(payload: dict, *, ticker: str, metrics=None, limit=3, as_of=None) -> dict:
+def normalize_company_facts(payload: dict, *, ticker: str, metrics=None, limit=None, as_of=None) -> dict:
     """Select latest-filed annual observations as known on the cutoff date.
 
     retrieved_at is this normalized snapshot's creation time. The raw SEC
-    response can be up to one hour old; it is not a live-update timestamp.
+    response can be as old as the configured SEC cache TTL; this is not a
+    live-update timestamp.
     """
+    limit = settings.financial_default_limit if limit is None else limit
     ticker, metrics, cutoff = _arguments(ticker, metrics, limit, as_of)
     if not isinstance(payload, dict):
         raise ValueError("SEC returned an invalid Company Facts document")
@@ -200,7 +201,7 @@ def normalize_company_facts(payload: dict, *, ticker: str, metrics=None, limit=3
 def _throttle():
     global _LAST_REQUEST
     with _REQUEST_LOCK:
-        delay = 0.25 - (time.monotonic() - _LAST_REQUEST)
+        delay = settings.sec_min_request_interval_seconds - (time.monotonic() - _LAST_REQUEST)
         if delay > 0:
             time.sleep(delay)
         _LAST_REQUEST = time.monotonic()
@@ -216,28 +217,33 @@ def _request_json(url: str) -> dict:
     try:
         cached = json.loads(cache_path.read_text(encoding="utf-8"))
         age = time.time() - cached["fetched_at"]
-        if 0 <= age < _CACHE_TTL and isinstance(cached["payload"], dict):
+        if 0 <= age < settings.sec_cache_ttl_seconds and isinstance(cached["payload"], dict):
             return cached["payload"]
     except (OSError, ValueError, KeyError, TypeError):
         pass
 
     # Keep errors free of request headers, including the configured identity.
-    with httpx.Client(headers={"User-Agent": identity, "Accept": "application/json"}, timeout=30) as client:
-        for attempt in range(3):
+    attempts = settings.sec_request_attempts
+    with httpx.Client(
+        headers={"User-Agent": identity, "Accept": "application/json"},
+        timeout=settings.sec_request_timeout_seconds,
+    ) as client:
+        for attempt in range(attempts):
+            backoff = settings.sec_retry_backoff_base_seconds * (2 ** attempt)
             _throttle()
             try:
                 response = client.get(url)
             except httpx.RequestError:
-                if attempt == 2:
-                    raise RuntimeError("SEC request failed after 3 attempts; retry later") from None
-                time.sleep(2 ** attempt)
+                if attempt == attempts - 1:
+                    raise RuntimeError(f"SEC request failed after {attempts} attempts; retry later") from None
+                time.sleep(backoff)
                 continue
             if response.status_code == 429 or response.status_code >= 500:
-                if attempt == 2:
+                if attempt == attempts - 1:
                     raise RuntimeError(f"SEC temporarily unavailable (HTTP {response.status_code}); retry later")
                 try:
-                    delay = float(response.headers.get("Retry-After", 2 ** attempt))
-                    delay = max(0, delay) if math.isfinite(delay) else 2 ** attempt
+                    delay = float(response.headers.get("Retry-After", backoff))
+                    delay = max(0, delay) if math.isfinite(delay) else backoff
                 except ValueError:
                     try:
                         retry_at = parsedate_to_datetime(response.headers["Retry-After"])
@@ -245,8 +251,8 @@ def _request_json(url: str) -> dict:
                             retry_at = retry_at.replace(tzinfo=timezone.utc)
                         delay = max(0, (retry_at - datetime.now(timezone.utc)).total_seconds())
                     except (ValueError, TypeError, KeyError, OverflowError):
-                        delay = 2 ** attempt
-                if delay > 5:
+                        delay = backoff
+                if delay > settings.sec_max_inline_retry_seconds:
                     # Respect SEC's wait request without blocking the tool loop.
                     raise RuntimeError("SEC requested a longer retry delay; retry later")
                 time.sleep(delay)
@@ -276,12 +282,13 @@ def _request_json(url: str) -> dict:
     return payload
 
 
-def get_financial_dataset(ticker: str, metrics=None, period="annual", limit=3, as_of=None) -> dict:
-    """Fetch official ticker mapping and Company Facts, cached for one hour."""
+def get_financial_dataset(ticker: str, metrics=None, period="annual", limit=None, as_of=None) -> dict:
+    """Fetch ticker mapping and Company Facts using the configured SEC cache."""
+    limit = settings.financial_default_limit if limit is None else limit
     ticker, metrics, cutoff = _arguments(ticker, metrics, limit, as_of)
     if period != "annual":
         raise ValueError("Only period='annual' is supported; quarterly and TTM are not inferred")
-    tickers = _request_json("https://www.sec.gov/files/company_tickers.json")
+    tickers = _request_json(settings.sec_tickers_url)
     matches = {
         str(row["cik_str"]).zfill(10)
         for row in tickers.values() if isinstance(row, dict)
@@ -294,7 +301,7 @@ def get_financial_dataset(ticker: str, metrics=None, period="annual", limit=3, a
     cik = matches.pop()
     if not re.fullmatch(r"\d{10}", cik) or int(cik) <= 0:
         raise ValueError("SEC returned an invalid ticker/CIK mapping")
-    payload = _request_json(f"https://data.sec.gov/api/xbrl/companyfacts/CIK{cik}.json")
+    payload = _request_json(settings.sec_company_facts_url_template.format(cik=cik))
     result = normalize_company_facts(payload, ticker=ticker, metrics=metrics, limit=limit, as_of=cutoff.isoformat())
     if result["cik"] != cik:
         raise ValueError("SEC Company Facts CIK does not match the requested company")

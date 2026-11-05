@@ -35,7 +35,6 @@ from typing import Any, Dict, List, Optional
 from app.agent.context_builder import (
     RAGResult,
     Citation,
-    SYSTEM_PROMPT,
     build_final_context,
     filter_retrieved_docs,
     parse_llm_response,
@@ -43,13 +42,11 @@ from app.agent.context_builder import (
 )
 from app.agent.verifier import Verifier
 from app.agent.refine import Refiner
+from app.config import settings
 from app.llm.client import LLMClient
 from app.rag.knowledge_base import KnowledgeBase
 
 logger = logging.getLogger(__name__)
-
-# Max refinement rounds to prevent infinite loops
-_MAX_REFINE_ROUNDS = 2
 
 
 class RAGAgent:
@@ -74,8 +71,8 @@ class RAGAgent:
         *,
         long_term_memory: str = "",
         short_term_memory: str = "",
-        score_threshold: float = 0.1,
-        max_docs: int = 5,
+        score_threshold: Optional[float] = None,
+        max_docs: Optional[int] = None,
         exclude_chunk_ids: Optional[set] = None,
     ) -> RAGResult:
         """Execute the full RAG pipeline with verification and refinement.
@@ -92,16 +89,19 @@ class RAGAgent:
         Returns:
             RAGResult with answer, debug_trace, evidence_used, citations.
         """
+        score_threshold = settings.rag_score_threshold if score_threshold is None else score_threshold
+        max_docs = settings.rag_max_docs if max_docs is None else max_docs
+        max_refine_rounds = settings.rag_max_refine_rounds
         current_query = query
         current_top_k = max_docs
         _exclude = exclude_chunk_ids or set()
 
-        for round_idx in range(_MAX_REFINE_ROUNDS + 1):
+        for round_idx in range(max_refine_rounds + 1):
             is_refine = round_idx > 0
             logger.info(
                 "RAG Agent: %s (round %d/%d, query=%s, exclude=%d chunks)",
                 "REFINE" if is_refine else "INITIAL",
-                round_idx + 1, _MAX_REFINE_ROUNDS + 1,
+                round_idx + 1, max_refine_rounds + 1,
                 current_query[:80], len(_exclude),
             )
 
@@ -140,7 +140,7 @@ class RAGAgent:
 
             # --- LLM generation ---
             raw = self.llm.generate_with_context(
-                system_prompt=SYSTEM_PROMPT,
+                system_prompt=settings.rag_system_prompt,
                 user_message=final_context,
             )
             debug_trace, final_answer, evidence_from_llm = parse_llm_response(raw)
@@ -156,7 +156,7 @@ class RAGAgent:
                 Citation(
                     id=i + 1,
                     source=chunk.metadata.get("source", "unknown"),
-                    text=chunk.text[:200].strip(),
+                    text=chunk.text[:settings.citation_excerpt_chars].strip(),
                 )
                 for i, (chunk, _) in enumerate(filtered)
             ]
@@ -188,7 +188,7 @@ class RAGAgent:
             )
 
             # --- Pass → return; Fail → refine or give up ---
-            if passed or round_idx >= _MAX_REFINE_ROUNDS:
+            if passed or round_idx >= max_refine_rounds:
                 if not passed:
                     logger.warning(
                         "RAG Agent: verification failed after %d rounds, returning best effort",
@@ -204,7 +204,6 @@ class RAGAgent:
                 original_query=query,
                 verifier_result=verification,
                 current_top_k=current_top_k,
-                expanded_top_k=15,
             )
             current_query = refine_result["refined_query"]
             current_top_k = refine_result["top_k"]

@@ -31,8 +31,8 @@ def main() -> None:
     parser.add_argument(
         "--backfill-days",
         type=int,
-        default=30,
-        help="If no prior state, fetch this many days back (default: 30)",
+        default=settings.edgar_backfill_days,
+        help="If no prior state, fetch this many days back (default: EDGAR_BACKFILL_DAYS)",
     )
     parser.add_argument(
         "--tickers",
@@ -43,13 +43,13 @@ def main() -> None:
     parser.add_argument(
         "--forms",
         type=str,
-        default="10-K,10-Q,8-K",
-        help="Comma-separated forms (default: 10-K,10-Q,8-K)",
+        default=",".join(settings.edgar_forms),
+        help="Comma-separated forms (default: EDGAR_FORMS)",
     )
     args = parser.parse_args()
 
     logging.basicConfig(
-        level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s"
+        level=settings.log_level, format=settings.log_format,
     )
 
     settings.ensure_finance_dirs()

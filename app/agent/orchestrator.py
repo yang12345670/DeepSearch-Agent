@@ -32,34 +32,18 @@ from app.memory.short_term import ShortTermMemory
 from app.rag.knowledge_base import KnowledgeBase
 from app.storage import chat_store
 
+from app.config import settings
+
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Summarizer prompt
 # ---------------------------------------------------------------------------
 
-_CHAT_ONLY_SYSTEM_PROMPT = """\
-你是一个友好的中文对话助手。基于对话历史和长期记忆与用户自然交流。
-- 回答简洁、自然，不需要任何调试标签或结构化格式。
-- 对于事实性问题，如果不确定就直说不知道，不要编造。
-- 不要输出 [DEBUG_TRACE] / [FINAL_ANSWER] / [EVIDENCE_USED] 等标签。"""
+_CHAT_ONLY_SYSTEM_PROMPT = settings.chat_only_system_prompt
 
 
-_SUMMARIZER_SYSTEM_PROMPT = """\
-你是一个答案合并器。你会收到一个原始问题和若干子问题的回答。
-请将这些子回答合并为一个完整、连贯、无重复的最终回答。
-
-规则：
-1. 保留每个子回答中有证据支持的内容，不要丢失信息。
-2. 如果某个子回答说"证据不足"，在最终回答中保留这一标注。
-3. 不要编造任何子回答中没有的内容。
-4. 使用中文，结构清晰。
-5. 如果子回答之间有矛盾，以证据更充分的为准，并标注分歧。
-
-输出格式：
-[FINAL_ANSWER]
-（合并后的完整回答）
-[/FINAL_ANSWER]"""
+_SUMMARIZER_SYSTEM_PROMPT = settings.summarizer_system_prompt
 
 
 # ---------------------------------------------------------------------------
@@ -71,7 +55,7 @@ class AgentOrchestrator:
 
     def __init__(self, knowledge_base: KnowledgeBase) -> None:
         self.llm = LLMClient()
-        self.memory = ShortTermMemory(max_rounds=8)
+        self.memory = ShortTermMemory()
         self.long_term_memory = LongTermMemory()
         self.knowledge_base = knowledge_base
         self.planner = Planner(llm_client=self.llm)
@@ -162,7 +146,7 @@ class AgentOrchestrator:
 
         try:
             answer = self.llm.generate_with_context(
-                system_prompt=_CHAT_ONLY_SYSTEM_PROMPT,
+                system_prompt=settings.chat_only_system_prompt,
                 user_message=user_message,
             ).strip()
         except Exception as e:
@@ -285,7 +269,7 @@ class AgentOrchestrator:
 
         try:
             raw = self.llm.generate_with_context(
-                system_prompt=_SUMMARIZER_SYSTEM_PROMPT,
+                system_prompt=settings.summarizer_system_prompt,
                 user_message=user_message,
             )
             m = re.search(
@@ -313,7 +297,6 @@ class AgentOrchestrator:
     def _recall_long_term(self, query: str, user_id: str) -> str:
         recalled = self.long_term_memory.recall_memories(
             query,
-            top_k=5,
             filter_types=["user_preference", "research_direction", "task_conclusion"],
             user_id=user_id if user_id != "default" else None,
         )
@@ -344,7 +327,7 @@ class AgentOrchestrator:
             task_result=None,
             llm_client=self.llm,
         )
-        gated = gate_filter(memory_candidates, threshold=1)
+        gated = gate_filter(memory_candidates)
         added = self.long_term_memory.add_memories(gated)
         logger.info(
             "Eviction triggered: %d messages → %d candidates → %d gated → %d stored",

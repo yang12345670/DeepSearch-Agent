@@ -5,7 +5,7 @@ Tier 1 scope: per-ticker news, save title + summary as markdown.
 Output: `data/docs_finance/alphavantage/{YYYY-MM}/{sha1(url+title)[:16]}.md`
 
 Idempotency: existing files are skipped (sha1-based dedup).
-Rate limit: free tier = 5 req/min, enforced via sleep(13s) between requests.
+Rate limiting and request limits are configured centrally in app.config.
 """
 
 from __future__ import annotations
@@ -21,10 +21,6 @@ from typing import Iterable, Optional
 import httpx
 
 logger = logging.getLogger(__name__)
-
-API_URL = "https://www.alphavantage.co/query"
-RATE_LIMIT_SLEEP = 13.0  # 5 req/min + 1s safety margin
-
 
 def _doc_id(url: str, title: str) -> str:
     payload = f"{url}|{title}".encode("utf-8")
@@ -64,13 +60,16 @@ def fetch_news(
     since: datetime,
     tickers: Optional[Iterable[str]] = None,
     out_dir: Optional[Path] = None,
-    limit_per_ticker: int = 200,
+    limit_per_ticker: Optional[int] = None,
 ) -> int:
     """Fetch news per-ticker since `since`, write per-article markdown.
 
     Returns count of newly written files. Existing files are skipped.
     """
     from app.config import settings
+
+    if limit_per_ticker is None:
+        limit_per_ticker = settings.alphavantage_limit_per_ticker
 
     if not settings.alphavantage_api_key:
         raise RuntimeError("ALPHAVANTAGE_API_KEY not set in .env")
@@ -84,11 +83,11 @@ def fetch_news(
     written = 0
     seen_doc_ids: set[str] = set()
 
-    with httpx.Client(timeout=30.0) as client:
+    with httpx.Client(timeout=settings.alphavantage_request_timeout_seconds) as client:
         for i, ticker in enumerate(tickers_list):
             if i > 0:
-                logger.info("[av] sleep %.0fs (rate limit)", RATE_LIMIT_SLEEP)
-                time.sleep(RATE_LIMIT_SLEEP)
+                logger.info("[av] sleep %.0fs (rate limit)", settings.alphavantage_request_interval_seconds)
+                time.sleep(settings.alphavantage_request_interval_seconds)
 
             params = {
                 "function": "NEWS_SENTIMENT",
@@ -99,11 +98,12 @@ def fetch_news(
                 "apikey": settings.alphavantage_api_key,
             }
             try:
-                r = client.get(API_URL, params=params)
+                r = client.get(settings.alphavantage_api_url, params=params)
                 r.raise_for_status()
                 payload = r.json()
             except (httpx.HTTPError, ValueError) as e:  # noqa: BLE001
-                logger.warning("[av] %s request failed: %s", ticker, e)
+                # HTTP exception text can contain the API key in the query URL.
+                logger.warning("[av] %s request failed (%s)", ticker, type(e).__name__)
                 continue
 
             if _is_rate_limit_response(payload):

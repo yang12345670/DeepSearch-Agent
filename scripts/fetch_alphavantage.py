@@ -30,8 +30,8 @@ def main() -> None:
     parser.add_argument(
         "--backfill-days",
         type=int,
-        default=7,
-        help="If no prior state, fetch this many days back (default: 7)",
+        default=settings.alphavantage_backfill_days,
+        help="If no prior state, fetch this many days back (default: ALPHAVANTAGE_BACKFILL_DAYS)",
     )
     parser.add_argument(
         "--tickers",
@@ -42,13 +42,13 @@ def main() -> None:
     parser.add_argument(
         "--limit",
         type=int,
-        default=200,
-        help="Per-ticker max items (default: 200)",
+        default=settings.alphavantage_limit_per_ticker,
+        help="Per-ticker max items (default: ALPHAVANTAGE_LIMIT_PER_TICKER)",
     )
     args = parser.parse_args()
 
     logging.basicConfig(
-        level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s"
+        level=settings.log_level, format=settings.log_format,
     )
 
     settings.ensure_finance_dirs()

@@ -1,8 +1,7 @@
 """PDF generation tool for the ReAct agent.
 
-Renders structured (title + sections) input into a PDF file under
-`data/exports/{timestamp}_{slug}.pdf` using reportlab + the built-in
-CID font STSong-Light (no external ttf required, works on Win/Mac/Linux).
+Renders structured (title + sections) input into a PDF file using the export
+directory and ReportLab font selected in app.config.
 
 Tool input shape (LLM's responsibility to fill correctly):
     {
@@ -40,20 +39,21 @@ from reportlab.pdfbase.cidfonts import UnicodeCIDFont
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer
 
 from app.agent.tools import register_tool
+from app.config import settings
 
 logger = logging.getLogger(__name__)
 
-# Register the built-in CJK CID font once on module import.
-# STSong-Light is bundled with reportlab via Adobe-GB1 — no ttf download needed.
-_FONT_NAME = "STSong-Light"
-try:
-    pdfmetrics.registerFont(UnicodeCIDFont(_FONT_NAME))
-except Exception as e:  # noqa: BLE001
-    logger.warning("Failed to register %s, falling back to Helvetica: %s", _FONT_NAME, e)
-    _FONT_NAME = "Helvetica"
-
-
-_EXPORTS_DIR = Path("data/exports")
+def _font_name() -> str:
+    """Use a registered/standard font or register a built-in CJK CID font."""
+    name = settings.pdf_font_name
+    try:
+        pdfmetrics.getFont(name)
+    except KeyError:
+        try:
+            pdfmetrics.registerFont(UnicodeCIDFont(name))
+        except Exception as exc:
+            raise ValueError("PDF_FONT_NAME must identify a ReportLab standard or CID font") from exc
+    return name
 
 
 def _slugify(s: str) -> str:
@@ -66,24 +66,25 @@ def _slugify(s: str) -> str:
 def _styles() -> Dict[str, ParagraphStyle]:
     """Build the four paragraph styles we use, all CJK-safe."""
     base = getSampleStyleSheet()["Normal"]
+    font_name = _font_name()
     return {
         "title": ParagraphStyle(
             "TitleCJK", parent=base,
-            fontName=_FONT_NAME, fontSize=20, leading=26,
+            fontName=font_name, fontSize=20, leading=26,
             spaceAfter=14, textColor=colors.HexColor("#1a1a1a"),
         ),
         "h1": ParagraphStyle(
             "H1CJK", parent=base,
-            fontName=_FONT_NAME, fontSize=14, leading=18,
+            fontName=font_name, fontSize=14, leading=18,
             spaceBefore=10, spaceAfter=6, textColor=colors.HexColor("#0a3d8a"),
         ),
         "body": ParagraphStyle(
             "BodyCJK", parent=base,
-            fontName=_FONT_NAME, fontSize=11, leading=16, spaceAfter=4,
+            fontName=font_name, fontSize=11, leading=16, spaceAfter=4,
         ),
         "citation": ParagraphStyle(
             "CitationCJK", parent=base,
-            fontName=_FONT_NAME, fontSize=9, leading=12,
+            fontName=font_name, fontSize=9, leading=12,
             textColor=colors.HexColor("#666666"), leftIndent=10,
         ),
     }
@@ -192,11 +193,12 @@ def generate_pdf(
     if not sections:
         raise ValueError("sections must be a non-empty list")
 
-    _EXPORTS_DIR.mkdir(parents=True, exist_ok=True)
+    exports_dir = Path(settings.pdf_exports_dir)
+    exports_dir.mkdir(parents=True, exist_ok=True)
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     stem = _slugify(filename) if filename else _slugify(title)
-    out_path = _EXPORTS_DIR / f"{timestamp}_{stem}.pdf"
+    out_path = exports_dir / f"{timestamp}_{stem}.pdf"
 
     doc = SimpleDocTemplate(
         str(out_path),

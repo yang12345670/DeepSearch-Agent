@@ -7,11 +7,12 @@ for pure ASCII text. This dramatically improves BM25 recall for Chinese queries.
 from __future__ import annotations
 
 import re
-from typing import List, Sequence, Tuple
+from typing import List, Optional, Sequence, Tuple
 
 import numpy as np
 from rank_bm25 import BM25Okapi
 
+from app.config import settings
 from app.rag.chunker import DocumentChunk
 
 # Lazy-load jieba to avoid import overhead when not needed
@@ -51,9 +52,10 @@ class BM25Retriever:
         corpus = [tokenize(c.text) for c in self.chunks]
         self._bm25 = BM25Okapi(corpus) if corpus else None
 
-    def search(self, query: str, top_k: int = 8) -> List[Tuple[DocumentChunk, float]]:
+    def search(self, query: str, top_k: Optional[int] = None) -> List[Tuple[DocumentChunk, float]]:
         """Return (chunk, bm25_score) sorted by score desc."""
-        if not self.chunks or self._bm25 is None:
+        top_k = settings.hybrid_top_k_bm25 if top_k is None else top_k
+        if not self.chunks or self._bm25 is None or top_k <= 0:
             return []
 
         tokens = tokenize(query)

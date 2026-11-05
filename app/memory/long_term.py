@@ -53,11 +53,14 @@ class LongTermMemory:
     def __init__(
         self,
         *,
-        index_dir: str = "data/memory",
+        index_dir: Optional[str] = None,
         model_name: Optional[str] = None,
-        embedding_dim: int = 384,
-        dedup_threshold: float = 0.9,
+        embedding_dim: Optional[int] = None,
+        dedup_threshold: Optional[float] = None,
     ) -> None:
+        index_dir = settings.memory_index_dir if index_dir is None else index_dir
+        embedding_dim = settings.embedding_dim if embedding_dim is None else embedding_dim
+        dedup_threshold = settings.memory_dedup_threshold if dedup_threshold is None else dedup_threshold
         self.index_dir = Path(index_dir)
         self.index_dir.mkdir(parents=True, exist_ok=True)
         self.records_path = self.index_dir / "records.json"
@@ -65,7 +68,7 @@ class LongTermMemory:
         self.vectors_path = self.index_dir / "vectors.npy"
 
         self.embedder = get_embedding_model(
-            model_name or settings.embedding_model_name, dim=embedding_dim
+            settings.embedding_model_name if model_name is None else model_name, dim=embedding_dim
         )
         self.embedding_dim = self.embedder.dim
 
@@ -253,7 +256,7 @@ class LongTermMemory:
     def recall_memories(
         self,
         query: str,
-        top_k: int = 5,
+        top_k: Optional[int] = None,
         *,
         filter_types: Optional[List[str]] = None,
         user_id: Optional[str] = None,
@@ -270,14 +273,15 @@ class LongTermMemory:
         Returns:
             List of MemoryRecord sorted by relevance.
         """
-        if not query.strip() or not self.records:
+        top_k = settings.memory_recall_top_k if top_k is None else top_k
+        if not query.strip() or not self.records or top_k <= 0:
             return []
 
         q = self.embedder.encode([query]).astype(np.float32)
         qn = q / (np.linalg.norm(q, axis=1, keepdims=True) + 1e-12)
 
         # Retrieve more candidates than needed, then filter
-        search_k = min(top_k * 3, len(self.records))
+        search_k = min(top_k * settings.memory_recall_candidate_multiplier, len(self.records))
 
         if self._faiss is not None:
             try:
@@ -303,12 +307,15 @@ class LongTermMemory:
 
         # Composite ranking: similarity × (w1*confidence + w2*importance + w3*recency)
         now = time.time()
-        W_CONF, W_IMP, W_REC = 0.3, 0.3, 0.4
         ranked = []
         for rec, sim_score in filtered:
             days_old = (now - rec.timestamp) / 86400.0 if rec.timestamp > 0 else 30.0
             recency = 1.0 / (1.0 + days_old)
-            quality = W_CONF * rec.confidence + W_IMP * rec.importance + W_REC * recency
+            quality = (
+                settings.memory_confidence_weight * rec.confidence
+                + settings.memory_importance_weight * rec.importance
+                + settings.memory_recency_weight * recency
+            )
             rank_score = sim_score * (0.5 + 0.5 * quality)  # quality modulates similarity
             ranked.append((rec, rank_score))
 

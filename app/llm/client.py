@@ -15,17 +15,11 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict, Generator, List, Optional
 
+import httpx
+
 from app.config import settings
 
 logger = logging.getLogger(__name__)
-
-# Default base URLs per provider (used when LLM_BASE_URL is not set)
-_DEFAULT_BASE_URLS = {
-    "openai": "https://api.openai.com/v1",
-    "deepseek": "https://api.deepseek.com",
-    "zhipu": "https://open.bigmodel.cn/api/paas/v4",
-}
-
 
 class LLMClient:
     """LLM client that dispatches to real API or local fallback."""
@@ -51,14 +45,22 @@ class LLMClient:
             self.provider = "local"
             return
 
-        base_url = settings.llm_base_url or _DEFAULT_BASE_URLS.get(self.provider)
+        base_url = settings.llm_base_url or settings.llm_provider_base_urls.get(self.provider)
 
         try:
             from openai import OpenAI
-            self._client = OpenAI(api_key=api_key, base_url=base_url)
+            self._client = OpenAI(
+                api_key=api_key,
+                base_url=base_url,
+                timeout=httpx.Timeout(
+                    settings.llm_request_timeout_seconds,
+                    connect=settings.llm_connect_timeout_seconds,
+                ),
+                max_retries=settings.llm_max_retries,
+            )
             logger.info(
-                "LLM client initialized: provider=%s, model=%s, base_url=%s",
-                self.provider, self.model, base_url,
+                "LLM client initialized: provider=%s, model=%s",
+                self.provider, self.model,
             )
         except ImportError:
             logger.warning(

@@ -31,32 +31,34 @@ logger = logging.getLogger(__name__)
 BlockType = Literal["text", "code", "formula", "table"]
 LABELS = ("text", "code", "formula", "table")
 
-MODEL_DIR = Path(__file__).resolve().parents[2] / "models" / "block_classifier"
-
 _LOAD_LOCK = threading.Lock()
 _MODEL_BUNDLE: Optional[Tuple] = None  # (tokenizer, model, device, id2label)
 _LOAD_FAILED: bool = False
+_MODEL_PATH: Optional[Path] = None
+_CACHE_LOCK = threading.Lock()
+_CLASSIFIER_CACHE = None
+_CLASSIFIER_CACHE_KEY = None
 
 
 def _load_model_bundle() -> Optional[Tuple]:
     """Load tokenizer + model once. Returns None if anything fails."""
-    global _MODEL_BUNDLE, _LOAD_FAILED
-
-    if _MODEL_BUNDLE is not None:
-        return _MODEL_BUNDLE
-    if _LOAD_FAILED:
-        return None
+    global _MODEL_BUNDLE, _LOAD_FAILED, _MODEL_PATH
+    model_dir = Path(settings.classifier_model_dir)
 
     with _LOAD_LOCK:
+        if _MODEL_PATH != model_dir:
+            _MODEL_PATH = model_dir
+            _MODEL_BUNDLE = None
+            _LOAD_FAILED = False
         if _MODEL_BUNDLE is not None:
             return _MODEL_BUNDLE
         if _LOAD_FAILED:
             return None
 
-        if not MODEL_DIR.exists():
+        if not model_dir.exists():
             logger.warning(
                 "DistilBERT block classifier requested but model dir missing: %s. "
-                "Falling back to rule classifier.", MODEL_DIR,
+                "Falling back to rule classifier.", model_dir,
             )
             _LOAD_FAILED = True
             return None
@@ -66,13 +68,13 @@ def _load_model_bundle() -> Optional[Tuple]:
             from transformers import AutoTokenizer, AutoModelForSequenceClassification
 
             device = "cuda" if torch.cuda.is_available() else "cpu"
-            tokenizer = AutoTokenizer.from_pretrained(str(MODEL_DIR))
-            model = AutoModelForSequenceClassification.from_pretrained(str(MODEL_DIR))
+            tokenizer = AutoTokenizer.from_pretrained(str(model_dir))
+            model = AutoModelForSequenceClassification.from_pretrained(str(model_dir))
             model.eval()
             model.to(device)
             id2label = model.config.id2label
             _MODEL_BUNDLE = (tokenizer, model, device, id2label)
-            logger.info("Loaded DistilBERT block classifier on %s from %s", device, MODEL_DIR)
+            logger.info("Loaded DistilBERT block classifier on %s from %s", device, model_dir)
             return _MODEL_BUNDLE
         except Exception as e:
             logger.warning(
@@ -90,7 +92,7 @@ def _classify_distilbert(text: str) -> BlockType:
 
     import torch
     tokenizer, model, device, id2label = bundle
-    enc = tokenizer(text, truncation=True, max_length=256, return_tensors="pt").to(device)
+    enc = tokenizer(text, truncation=True, max_length=settings.classifier_max_length, return_tensors="pt").to(device)
     with torch.no_grad():
         logits = model(**enc).logits
     idx = int(logits.argmax(-1).item())
@@ -106,9 +108,8 @@ def _rule_classify(text: str) -> BlockType:
     return classify_block_rule(text)
 
 
-@functools.lru_cache(maxsize=4096)
-def _classify_cached(text: str, backend: str) -> BlockType:
-    """Inner cached classifier. Backend in cache key so flipping config is clean."""
+def _classify_uncached(text: str, backend: str) -> BlockType:
+    """Select the configured classifier, falling back to rules on failure."""
     if backend == "rule":
         return _rule_classify(text)
 
@@ -137,7 +138,15 @@ def classify_block(text: str) -> BlockType:
     Backend chosen by ``settings.chunker_classifier`` (env CHUNKER_CLASSIFIER).
     Empty / whitespace-only input returns ``"text"`` without invoking any backend.
     """
+    global _CLASSIFIER_CACHE, _CLASSIFIER_CACHE_KEY
     if not text or not text.strip():
         return "text"
     backend = (settings.chunker_classifier or "auto").strip().lower()
-    return _classify_cached(text, backend)
+    # Recreate the cache when inference settings change so stale labels are not reused.
+    cache_key = (settings.classifier_cache_size, str(settings.classifier_model_dir), settings.classifier_max_length)
+    with _CACHE_LOCK:
+        if _CLASSIFIER_CACHE is None or _CLASSIFIER_CACHE_KEY != cache_key:
+            _CLASSIFIER_CACHE = functools.lru_cache(maxsize=settings.classifier_cache_size)(_classify_uncached)
+            _CLASSIFIER_CACHE_KEY = cache_key
+        classify = _CLASSIFIER_CACHE
+    return classify(text, backend)

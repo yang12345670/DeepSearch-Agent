@@ -11,10 +11,11 @@ Implements:
 from __future__ import annotations
 
 import logging
-from typing import Dict, List, Sequence, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 
+from app.config import settings
 from app.rag.bm25_retriever import BM25Retriever
 from app.rag.chunker import DocumentChunk
 from app.rag.dense_retriever import DenseRetriever
@@ -41,21 +42,24 @@ class HybridRetriever:
         bm25: BM25Retriever,
         dense: DenseRetriever,
         *,
-        alpha: float = 0.5,
+        alpha: Optional[float] = None,
     ) -> None:
         self.bm25 = bm25
         self.dense = dense
-        self.alpha = alpha
+        self.alpha = settings.hybrid_alpha if alpha is None else alpha
 
     def search(
         self,
         query: str,
         *,
-        top_k_bm25: int = 8,
-        top_k_dense: int = 8,
-        top_k: int = 8,
+        top_k_bm25: Optional[int] = None,
+        top_k_dense: Optional[int] = None,
+        top_k: Optional[int] = None,
     ) -> List[Tuple[DocumentChunk, float]]:
         """Return (chunk, fused_score) for downstream reranker."""
+        top_k_bm25 = settings.hybrid_top_k_bm25 if top_k_bm25 is None else top_k_bm25
+        top_k_dense = settings.hybrid_top_k_dense if top_k_dense is None else top_k_dense
+        top_k = settings.hybrid_fusion_top_k if top_k is None else top_k
         bm25_hits = self.bm25.search(query, top_k=top_k_bm25)
         dense_hits = self.dense.search(query, top_k=top_k_dense)
 

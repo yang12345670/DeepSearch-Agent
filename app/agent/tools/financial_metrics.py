@@ -8,6 +8,7 @@ import math
 import re
 
 from app.agent.tools import register_tool
+from app.config import settings
 from app.finance.store import load_dataset
 
 
@@ -17,7 +18,6 @@ _METRICS = {
     "net_margin": ("net_income", "revenue", "net_income / revenue * 100"),
     "operating_cash_flow_margin": ("operating_cash_flow", "revenue", "operating_cash_flow / revenue * 100"),
 }
-_DEFAULT_METRICS = ["revenue_growth_yoy", "net_income_growth_yoy", "net_margin"]
 _FACT_METRICS = {"revenue", "net_income", "assets", "equity", "cash", "operating_cash_flow"}
 _FACT_FIELDS = {
     "metric", "value", "unit", "period_start", "period_end", "period_type", "filed",
@@ -199,14 +199,14 @@ def _calculate(dataset: dict, metric: str, index: int) -> dict:
             "metrics": {
                 "type": "array", "items": {"type": "string", "enum": list(_METRICS)},
                 "minItems": 1, "uniqueItems": True,
-                "description": "Defaults to revenue_growth_yoy, net_income_growth_yoy and net_margin.",
+                "description": "Defaults to the configured financial calculation metric list.",
             },
         },
         "required": ["dataset_id"], "additionalProperties": False,
     },
 )
 def calculate_metrics(dataset_id: str, metrics: list[str] | None = None) -> dict:
-    names = _DEFAULT_METRICS if metrics is None else metrics
+    names = list(settings.financial_calculation_default_metrics) if metrics is None else metrics
     if not isinstance(names, list) or not names or any(not isinstance(n, str) or n not in _METRICS for n in names):
         raise ValueError("metrics must be a non-empty array of supported metric names")
     if len(names) != len(set(names)):

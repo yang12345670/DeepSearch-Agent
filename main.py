@@ -7,10 +7,17 @@ work.
 """
 
 from app.main import app
+from app.config import settings
 
 
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run(
+        "main:app",
+        host=settings.server_host,
+        port=settings.server_port,
+        reload=settings.server_reload,
+        log_level=settings.log_level.lower(),
+    )
 

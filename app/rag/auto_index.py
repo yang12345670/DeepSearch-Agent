@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 from pathlib import Path
 from typing import Dict, List
 
@@ -24,7 +23,9 @@ from app.utils.helpers import load_text_and_md_files
 
 logger = logging.getLogger(__name__)
 
-FINGERPRINT_PATH = Path(settings.index_dir) / "docs_fingerprint.json"
+
+def _fingerprint_path() -> Path:
+    return Path(settings.index_dir) / "docs_fingerprint.json"
 
 
 def _compute_docs_fingerprint(docs_dir: str) -> Dict[str, Dict]:
@@ -48,18 +49,20 @@ def _compute_docs_fingerprint(docs_dir: str) -> Dict[str, Dict]:
 
 def _load_saved_fingerprint() -> Dict[str, Dict]:
     """Load the fingerprint from last successful indexing."""
-    if not FINGERPRINT_PATH.is_file():
+    path = _fingerprint_path()
+    if not path.is_file():
         return {}
     try:
-        return json.loads(FINGERPRINT_PATH.read_text(encoding="utf-8"))
+        return json.loads(path.read_text(encoding="utf-8"))
     except Exception:
         return {}
 
 
 def _save_fingerprint(fp: Dict[str, Dict]) -> None:
     """Persist current fingerprint after successful indexing."""
-    FINGERPRINT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    FINGERPRINT_PATH.write_text(
+    path = _fingerprint_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
         json.dumps(fp, ensure_ascii=False, indent=2), encoding="utf-8"
     )
 
@@ -73,7 +76,7 @@ def _safe_id(s: str) -> str:
 
 def _chunk_from_source(text: str, source: str) -> List[DocumentChunk]:
     from app.rag.chunker import split_documents
-    chunks = split_documents([text], chunk_size=256, overlap=64)
+    chunks = split_documents([text])
 
     out: List[DocumentChunk] = []
     for i, c in enumerate(chunks):
@@ -112,12 +115,7 @@ def rebuild_index() -> int:
         return 0
 
     # Encode document chunks for the persisted index.
-    force_hash = os.environ.get("DEEPSEARCH_EMBED_FORCE_HASH", "").lower() in (
-        "1", "true", "yes",
-    )
-    embedder = get_embedding_model(
-        settings.embedding_model_name, force_hash=force_hash, dim=384
-    )
+    embedder = get_embedding_model(settings.embedding_model_name)
 
     chunks: List[DocumentChunk] = []
     for rel_path, content in files:

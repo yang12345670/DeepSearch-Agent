@@ -17,6 +17,7 @@ import uuid
 from typing import Any, Dict
 
 from app.agent.tools import register_tool
+from app.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -72,7 +73,7 @@ def search_knowledge_base(query: str) -> Dict[str, Any]:
     return {
         "answer": result.answer,
         "citations": [
-            {"id": c.id, "source": c.source, "snippet": c.text[:200]}
+            {"id": c.id, "source": c.source, "snippet": c.text[:settings.citation_excerpt_chars]}
             for c in result.citations
         ],
         "evidence_count": len(result.evidence_used),

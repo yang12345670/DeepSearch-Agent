@@ -7,10 +7,9 @@ The cross-encoder ignores fused_score and re-scores (query, chunk.text) pairs.
 
 from __future__ import annotations
 
-from typing import List, Sequence, Tuple
+from typing import List, Optional, Sequence, Tuple
 
-import os
-
+from app.config import settings
 from app.rag.chunker import DocumentChunk
 
 
@@ -20,13 +19,12 @@ class CrossEncoderReranker:
     def __init__(self, model_name: str) -> None:
         self.model_name = model_name
         self._model = None
+        if settings.simple_reranker:
+            return
         try:
             from sentence_transformers import CrossEncoder
 
-            if os.environ.get("DEEPSEARCH_SIMPLE_RERANKER", "").lower() in ("1", "true", "yes"):
-                self._model = None
-            else:
-                self._model = CrossEncoder(model_name)
+            self._model = CrossEncoder(model_name)
         except Exception:
             self._model = None
 
@@ -34,9 +32,10 @@ class CrossEncoderReranker:
         self,
         query: str,
         candidates: Sequence[Tuple[DocumentChunk, float]],
-        top_n: int = 3,
+        top_n: Optional[int] = None,
     ) -> List[Tuple[DocumentChunk, float]]:
         """Rerank candidates, return (chunk, rerank_score) sorted by score desc."""
+        top_n = settings.reranker_top_n if top_n is None else top_n
         if not candidates or top_n <= 0:
             return []
 
