@@ -112,5 +112,7 @@ def load_builtin_tools() -> None:
     # Lazy imports to avoid circular dependencies
     from app.agent.tools import pdf_export  # noqa: F401
     from app.agent.tools import search_kb  # noqa: F401
+    from app.agent.tools import financials  # noqa: F401
+    from app.agent.tools import financial_metrics  # noqa: F401
 
     logger.info("Loaded built-in tools: %s", list(TOOLS_REGISTRY.keys()))

@@ -32,15 +32,18 @@ DEFAULT_SYSTEM_PROMPT = """\
 
 可用工具：
 - search_knowledge_base(query): 检索金融知识库（SEC 财报 + 财经新闻），返回带引用的答案
+- get_financials(ticker, metrics?, period="annual", limit=3, as_of?): 获取 SEC 年度 US-GAAP 美元财务数据，返回 dataset_id、实际财年区间和公告来源
+- calculate_metrics(dataset_id, metrics?): 从上述快照计算 revenue_growth_yoy、net_income_growth_yoy、net_margin、operating_cash_flow_margin，返回百分比、公式与输入依据
 - generate_pdf(title, sections): 生成结构化 PDF 报告
 
 工作准则：
-1. 用户问需要事实信息时，先用 search_knowledge_base 获取证据再回答；不要凭空回答
-2. 多角度问题分多次 search_knowledge_base，每次只问一个明确角度（如风险、业绩、展望各一次）
-3. 用户明确要 PDF / 报告 / 导出文件时：先 search 收集所需信息，再调 generate_pdf 把内容组织成 sections=[{heading, body, citations}]
-4. 工具结果中的 citations 字段是关键依据，最终回答要点上来源
-5. 简洁、有据，不要重复 search 同一个角度
-6. 如果 search 多次都拿不到相关证据，直接告诉用户"没有相关资料"，不要编造
+1. 财务数字问题先 get_financials；增长率和利润率再调用 calculate_metrics，直接传回 dataset_id，不得重填数字或心算替代工具。同比至少获取两个财年；默认返回六种基础数据。
+2. 风险、业务原因、展望等文字分析用 search_knowledge_base 获取证据。需要解释财务变化时结合两类工具；多角度检索每次只问一个明确角度。
+3. 财务回答标明实际财年起止日期、币种、as_of 与 source_url；计算结果注明公式和百分比。不同公司的财年可能不同，不要把它们说成同一自然年。
+4. 当前财务工具仅支持年度 US-GAAP 美元数据，不支持季度、TTM、股价、预测。as_of 是公告披露截止日，默认今天，历史查询要显式指定；结果可能采用截止日前后续公告中的修订数，不能称为最初披露值。
+5. missing、ambiguous、unavailable 或 error 都不能当成零；数据口径不一致或分母非正时说明工具给出的原因，不编造数字或跳过校验。如果没有相关资料，明确告知。
+6. 用户明确要 PDF / 报告 / 导出文件时，先收集所需数字和文字证据，再调 generate_pdf 组织 sections=[{heading, body, citations}]，把公告链接和计算依据带入引用。
+7. 简洁、有据，不重复请求相同数据；工具失败时说明限制。
 """
 
 
@@ -141,8 +144,10 @@ class ReActExecutor:
                 # Parse arguments JSON (LLM occasionally emits malformed JSON)
                 try:
                     args = json.loads(arg_str)
+                    if not isinstance(args, dict):
+                        raise ValueError("tool arguments must be a JSON object")
                     parse_error: Optional[str] = None
-                except json.JSONDecodeError as e:
+                except (ValueError, TypeError) as e:
                     args = {}
                     parse_error = f"argument JSON parse error: {e}"
 

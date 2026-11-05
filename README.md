@@ -33,7 +33,7 @@
 
 > 总结 AAPL 的主要风险，生成一份带来源引用的 PDF 简报。
 
-默认知识库为 `data/docs/` 中的技术教材。公司研究需要先采集金融资料，回答范围取决于已入库内容。
+默认知识库为 `data/docs/` 中的技术教材。公告解读需要先采集金融资料；结构化财务取数直接访问 SEC，无需提前入库。
 
 <a id="zh-workflow"></a>
 ## 工作流程
@@ -59,9 +59,9 @@ flowchart LR
 | --- | --- | --- |
 | **网页问答** | 直接检索 → 流式回答 | `/chat/stream` |
 | **完整 Agent** | 重写或拆分问题 → 检索 → 启发式验证与重试 → 汇总 | `/chat` |
-| **ReAct 工具调用** | LLM 选择检索或 PDF 工具 → 执行 → 返回结果 | `/chat`，`mode=react` |
+| **ReAct 工具调用** | LLM 选择检索、财务取数、计算或 PDF 工具 → 执行 → 返回结果 | `/chat`，`mode=react` |
 
-网页支持引用、聊天记录和 Markdown 上传。ReAct 需要支持工具调用的模型；生成的 PDF 保存在服务端 `data/exports/`，API 返回文件路径。
+网页支持引用、聊天记录和 Markdown 上传，目前走检索链路。财务工具使用 ReAct API，需要支持工具调用的模型；生成的 PDF 保存在服务端 `data/exports/`，API 返回文件路径。
 
 <a id="zh-quick-start"></a>
 ## 快速开始
@@ -117,6 +117,39 @@ python -m http.server 8080 --directory frontend
 ## 金融研究
 
 支持采集 **SEC EDGAR** 的 `10-K`、`10-Q`、`8-K`，以及 **Alpha Vantage** 的新闻摘要与情绪元数据。
+
+### 财务取数与计算
+
+**问题 → SEC 财务数据 → 指标计算 → 带公告来源的回答**。需要解释业务原因时，再结合知识库检索。
+
+| 工具 | 用途 |
+| --- | --- |
+| `get_financials` | 获取营收、净利润、资产、股东权益、现金和经营现金流；返回财年、币种、公告链接和数据快照 ID |
+| `calculate_metrics` | 读取该快照，计算营收同比、净利润同比、净利率和经营现金流／营收比率，返回公式与原始输入 |
+| `search_knowledge_base` | 查找已入库公告和新闻中的风险、业务变化与解释 |
+| `generate_pdf` | 把研究结果与引用整理成 PDF |
+
+当前财务工具支持 **SEC 年度 US-GAAP 美元数据**，不包含季度、TTM、股价或预测。`as_of` 是披露截止日，默认今天；按截止日前的最新披露取值，可能包含后续修订。同比校验连续财年和指标定义，利润率要求同一公告版本；数据缺失、冲突或分母非正会返回原因，不会补零。
+
+<details>
+<summary><strong>示例：计算 AAPL 的增长率和净利率</strong></summary>
+
+在 `.env` 配置 `EDGAR_USER_AGENT=Your Name your-email@example.com`，重启服务后调用：
+
+```bash
+curl http://localhost:8000/chat \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "query": "获取 AAPL 最近三个财年的营收和净利润，计算营收同比、净利润同比和净利率，标明实际财年及公告来源。",
+    "session_id": "financials-aapl",
+    "mode": "react"
+  }'
+```
+
+Agent 先调用 `get_financials`，再将返回的 `dataset_id` 传给 `calculate_metrics`，无需模型重填数字。三个财年可计算两组同比。SEC 响应缓存一小时，计算快照保存在本地 `data/financial_cache/`，不提交到 Git。
+
+</details>
+
 
 <details>
 <summary><strong>配置数据源并采集</strong></summary>
@@ -198,7 +231,7 @@ curl http://localhost:8000/chat \
 
 > Summarize AAPL's main risks and create a PDF brief with source references.
 
-The default corpus in `data/docs/` contains technical learning material. Ingest financial sources before company research; answers depend on what is in the knowledge base.
+The default corpus in `data/docs/` contains technical learning material. Ingest financial sources for narrative research; structured financial tools query SEC directly without prior ingestion.
 
 <a id="en-workflow"></a>
 ## How it works
@@ -224,9 +257,9 @@ Choose one of three ways to use this retrieval pipeline:
 | --- | --- | --- |
 | **Web Q&A** | Direct retrieval → streamed answer | `/chat/stream` |
 | **Full agent** | Rewrite or decompose → retrieve → heuristic checks and retries → summarize | `/chat` |
-| **ReAct tools** | LLM selects search or PDF tools → execute → return results | `/chat`, `mode=react` |
+| **ReAct tools** | LLM selects search, financial data, calculation or PDF tools → execute → return results | `/chat`, `mode=react` |
 
-The web UI supports source references, chat history, and Markdown uploads. ReAct requires a model with tool-calling support. PDFs are saved on the server in `data/exports/`; the API returns their file paths.
+The web UI supports source references, chat history, and Markdown uploads through the retrieval pipeline. Financial tools use the ReAct API and require a model with tool-calling support. PDFs are saved on the server in `data/exports/`; the API returns their file paths.
 
 <a id="en-quick-start"></a>
 ## Quick start
@@ -282,6 +315,39 @@ python -m http.server 8080 --directory frontend
 ## Financial research
 
 Ingest **SEC EDGAR** `10-K`, `10-Q`, and `8-K` filings, plus **Alpha Vantage** news summaries and sentiment metadata.
+
+### Financial data and calculations
+
+**Question → SEC financial facts → Metric calculation → Answer with filing sources**. Combine with knowledge-base search to explain business changes.
+
+| Tool | Purpose |
+| --- | --- |
+| `get_financials` | Fetch revenue, net income, assets, stockholders’ equity, cash and operating cash flow, with fiscal periods, currency, filing links and a dataset ID |
+| `calculate_metrics` | Read that snapshot to calculate revenue growth, net income growth, net margin and operating cash flow margin, with formulas and input evidence |
+| `search_knowledge_base` | Find risks, business changes and explanations in ingested filings and news |
+| `generate_pdf` | Export research findings and references as a PDF |
+
+Financial tools currently support **SEC annual US-GAAP facts in USD**; quarterly data, TTM, prices and forecasts are excluded. `as_of` is the filing cutoff, defaulting to today. Values use the latest eligible disclosures and may include later revisions. Growth requires consecutive fiscal periods and matching concepts; margins require the same filing version. Missing or conflicting data and nonpositive denominators return a reason, never an assumed zero.
+
+<details>
+<summary><strong>Example: calculate AAPL growth and net margin</strong></summary>
+
+Set `EDGAR_USER_AGENT=Your Name your-email@example.com` in `.env`, restart the server, then call:
+
+```bash
+curl http://localhost:8000/chat \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "query": "Fetch AAPL revenue and net income for the latest three fiscal years. Calculate revenue growth, net income growth and net margin, with actual fiscal dates and filing sources.",
+    "session_id": "financials-aapl",
+    "mode": "react"
+  }'
+```
+
+The agent calls `get_financials`, then passes its `dataset_id` to `calculate_metrics` without retyping amounts. Three fiscal years provide two year-over-year comparisons. SEC responses are cached for one hour; calculation snapshots stay in local `data/financial_cache/`, excluded from Git.
+
+</details>
+
 
 <details>
 <summary><strong>Configure and ingest sources</strong></summary>

@@ -129,6 +129,9 @@ class Settings(BaseModel):
     alphavantage_api_key: str = Field(default_factory=lambda: _env("ALPHAVANTAGE_API_KEY", ""))
     finance_docs_dir: str = Field(default_factory=lambda: _env("FINANCE_DOCS_DIR", "data/docs_finance"))
     finance_state_path: str = "data/finance_source_state.json"
+    financial_cache_dir: str = Field(
+        default_factory=lambda: _env("FINANCIAL_CACHE_DIR", "data/financial_cache"),
+    )
     finance_tracked_tickers: list[str] = Field(
         default_factory=lambda: [
             "AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "META",
