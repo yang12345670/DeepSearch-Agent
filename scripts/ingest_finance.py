@@ -76,11 +76,11 @@ def main() -> None:
     )
     parser.add_argument(
         "--sources",
-        default="edgar,av",
-        help="Comma-separated: edgar,av (default: both)",
+        default=",".join(settings.finance_ingest_sources),
+        help="Comma-separated: edgar,av (default: FINANCE_INGEST_SOURCES)",
     )
-    parser.add_argument("--edgar-backfill-days", type=int, default=30)
-    parser.add_argument("--av-backfill-days", type=int, default=7)
+    parser.add_argument("--edgar-backfill-days", type=int, default=settings.edgar_backfill_days)
+    parser.add_argument("--av-backfill-days", type=int, default=settings.alphavantage_backfill_days)
     parser.add_argument(
         "--skip-index",
         action="store_true",
@@ -89,7 +89,7 @@ def main() -> None:
     args = parser.parse_args()
 
     logging.basicConfig(
-        level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s"
+        level=settings.log_level, format=settings.log_format,
     )
     settings.ensure_finance_dirs()
 

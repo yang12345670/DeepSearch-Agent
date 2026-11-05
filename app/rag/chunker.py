@@ -9,6 +9,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Dict, Iterable, List, Literal, Optional
 
+from app.config import settings
 from app.rag.block_classifier import classify_block
 
 BlockType = Literal["text", "code", "formula", "table"]
@@ -192,10 +193,10 @@ def _char_split(text: str, chunk_size: int, overlap: int) -> List[str]:
 def split_documents(
     documents: Iterable[str],
     *,
-    chunk_size: int = 256,
-    overlap: int = 64,
-    overlap_sentences: int = 2,
-    min_chunk_size: int = 20,
+    chunk_size: Optional[int] = None,
+    overlap: Optional[int] = None,
+    overlap_sentences: Optional[int] = None,
+    min_chunk_size: Optional[int] = None,
 ) -> List[DocumentChunk]:
     """Split documents into chunks that respect sentence boundaries.
 
@@ -217,6 +218,10 @@ def split_documents(
             the next chunk as context overlap.
         min_chunk_size: discard chunks shorter than this.
     """
+    chunk_size = settings.chunk_size if chunk_size is None else chunk_size
+    overlap = settings.chunk_overlap if overlap is None else overlap
+    overlap_sentences = settings.chunk_overlap_sentences if overlap_sentences is None else overlap_sentences
+    min_chunk_size = settings.min_chunk_size if min_chunk_size is None else min_chunk_size
     chunks: List[DocumentChunk] = []
 
     for doc_idx, doc in enumerate(documents):

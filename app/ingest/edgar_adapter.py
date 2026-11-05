@@ -156,7 +156,7 @@ def _clean(text: str) -> str:
 def fetch_filings(
     since: datetime,
     tickers: Optional[Iterable[str]] = None,
-    forms: tuple[str, ...] = ("10-K", "10-Q", "8-K"),
+    forms: Optional[Iterable[str]] = None,
     out_dir: Optional[Path] = None,
 ) -> int:
     """Fetch filings since `since`, write per-filing markdown to disk.
@@ -179,6 +179,7 @@ def fetch_filings(
     base.mkdir(parents=True, exist_ok=True)
 
     tickers_list = list(tickers or settings.finance_tracked_tickers)
+    forms = tuple(settings.edgar_forms if forms is None else forms)
     since_date = since.date() if isinstance(since, datetime) else since
 
     written = 0

@@ -11,6 +11,7 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
+from app.config import settings
 from app.rag.chunker import DocumentChunk
 
 
@@ -51,7 +52,7 @@ def load_chunks_json(path: str) -> Tuple[List[DocumentChunk], Dict[str, Any]]:
     meta = {
         "embedding_model": data.get("embedding_model"),
         "embedding_backend": data.get("embedding_backend"),
-        "embedding_dim": data.get("embedding_dim", 384),
+        "embedding_dim": data.get("embedding_dim", settings.embedding_dim),
     }
     return chunks, meta
 

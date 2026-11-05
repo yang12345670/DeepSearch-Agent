@@ -13,7 +13,9 @@ Policy:
 
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
+
+from app.config import settings
 
 
 def should_refine(verifier_result: Dict[str, Any]) -> bool:
@@ -27,19 +29,21 @@ def refine_once(
     *,
     original_query: str,
     verifier_result: Dict[str, Any],
-    current_top_k: int = 8,
-    expanded_top_k: int = 15,
+    current_top_k: Optional[int] = None,
+    expanded_top_k: Optional[int] = None,
 ) -> Dict[str, Any]:
     """One refinement step: rewrite query + increase retrieval top_k."""
+    current_top_k = settings.refine_current_top_k if current_top_k is None else current_top_k
+    expanded_top_k = settings.refine_expanded_top_k if expanded_top_k is None else expanded_top_k
     missing = verifier_result.get("missing_points") or []
     unsupported = verifier_result.get("unsupported_claims") or []
     suggestion = str(verifier_result.get("suggestion") or "").strip()
 
     additions: List[str] = []
     if missing:
-        additions.append("补充要点：" + "；".join(str(x) for x in missing[:3]))
+        additions.append("补充要点：" + "；".join(str(x) for x in missing[:settings.refine_missing_points_limit]))
     if unsupported:
-        additions.append("避免无证据断言：" + "；".join(str(x) for x in unsupported[:2]))
+        additions.append("避免无证据断言：" + "；".join(str(x) for x in unsupported[:settings.refine_unsupported_claims_limit]))
     if suggestion:
         additions.append("修正策略：" + suggestion)
 
@@ -66,8 +70,8 @@ class Refiner:
         *,
         original_query: str,
         verifier_result: Dict[str, Any],
-        current_top_k: int = 8,
-        expanded_top_k: int = 15,
+        current_top_k: Optional[int] = None,
+        expanded_top_k: Optional[int] = None,
     ) -> Dict[str, Any]:
         return refine_once(
             original_query=original_query,

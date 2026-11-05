@@ -30,7 +30,7 @@ class KnowledgeBase:
         chunks: List[DocumentChunk],
         embedding_model_name: str,
         embedding_backend: Optional[str] = None,
-        embedding_dim: int = 384,
+        embedding_dim: Optional[int] = None,
         faiss_index_path: Optional[str] = None,
     ) -> None:
         # Maintain chunk list and metadata
@@ -64,7 +64,7 @@ class KnowledgeBase:
             return None
         model_name = str(meta.get("embedding_model") or settings.embedding_model_name)
         backend = meta.get("embedding_backend")
-        dim = int(meta.get("embedding_dim") or 384)
+        dim = int(meta.get("embedding_dim") or settings.embedding_dim)
         return cls(
             chunks=chunks,
             embedding_model_name=model_name,
@@ -83,10 +83,10 @@ class KnowledgeBase:
         top_n: Optional[int] = None,
     ) -> List[Tuple[DocumentChunk, float]]:
         """Return reranked chunk candidates with scores."""
-        actual_bm25_k = max(top_k_bm25 or settings.hybrid_top_k_bm25, 1)
-        actual_dense_k = max(top_k_dense or settings.hybrid_top_k_dense, 1)
-        actual_fusion_k = max(top_k_fusion or settings.hybrid_fusion_top_k, 1)
-        actual_top_n = top_n or settings.rag_top_k
+        actual_bm25_k = settings.hybrid_top_k_bm25 if top_k_bm25 is None else top_k_bm25
+        actual_dense_k = settings.hybrid_top_k_dense if top_k_dense is None else top_k_dense
+        actual_fusion_k = settings.hybrid_fusion_top_k if top_k_fusion is None else top_k_fusion
+        actual_top_n = settings.rag_top_k if top_n is None else top_n
 
         hybrid_candidates = self.hybrid.search(
             query,

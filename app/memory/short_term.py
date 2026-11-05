@@ -24,12 +24,15 @@ logger = logging.getLogger(__name__)
 class ShortTermMemory:
     """Session short-term memory backed by Redis."""
 
-    def __init__(self, max_rounds: int = 8, keep_rounds: int = 5) -> None:
+    def __init__(self, max_rounds: Optional[int] = None, keep_rounds: Optional[int] = None) -> None:
+        max_rounds = settings.short_term_max_rounds if max_rounds is None else max_rounds
+        keep_rounds = settings.short_term_keep_rounds if keep_rounds is None else keep_rounds
         self.max_rounds = max_rounds
         self.max_messages = max_rounds * 2
         self.keep_rounds = keep_rounds
         self.keep_messages = keep_rounds * 2
-        self.max_traces = 50
+        self.max_traces = settings.short_term_max_traces
+        self.key_prefix = settings.short_term_key_prefix
         self._redis = None
         try:
             import redis
@@ -44,13 +47,13 @@ class ShortTermMemory:
     # ------------------------------------------------------------------
 
     def _messages_key(self, session_id: str) -> str:
-        return f"deepsearch:st:{session_id}:messages"
+        return f"{self.key_prefix}:{session_id}:messages"
 
     def _traces_key(self, session_id: str) -> str:
-        return f"deepsearch:st:{session_id}:traces"
+        return f"{self.key_prefix}:{session_id}:traces"
 
     def _task_state_key(self, session_id: str) -> str:
-        return f"deepsearch:st:{session_id}:task_state"
+        return f"{self.key_prefix}:{session_id}:task_state"
 
     # ------------------------------------------------------------------
     # Conversation history (sliding window)
@@ -236,8 +239,9 @@ class ShortTermMemory:
             traces = self.get_recent_traces(session_id)
             if traces:
                 trace_lines = []
-                for ttype, tdata in traces[-5:]:  # Last 5 traces only
-                    summary = str(tdata.get("summary", ""))[:100] if tdata.get("summary") else ttype
+                recent_traces = traces[-settings.short_term_context_traces:] if settings.short_term_context_traces else []
+                for ttype, tdata in recent_traces:
+                    summary = str(tdata.get("summary", ""))[:settings.short_term_trace_summary_chars] if tdata.get("summary") else ttype
                     trace_lines.append(f"- [{ttype}] {summary}")
                 sections.append("工具调用轨迹：\n" + "\n".join(trace_lines))
 

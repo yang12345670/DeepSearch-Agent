@@ -24,27 +24,12 @@ from typing import Any, Dict, List, Optional
 from app.agent.tools import get_openai_tools_schema, get_tool, load_builtin_tools
 from app.llm.client import LLMClient
 
+from app.config import settings
+
 logger = logging.getLogger(__name__)
 
 
-DEFAULT_SYSTEM_PROMPT = """\
-你是一个金融研究 agent，可以调用工具帮助回答用户问题。
-
-可用工具：
-- search_knowledge_base(query): 检索金融知识库（SEC 财报 + 财经新闻），返回带引用的答案
-- get_financials(ticker, metrics?, period="annual", limit=3, as_of?): 获取 SEC 年度 US-GAAP 美元财务数据，返回 dataset_id、实际财年区间和公告来源
-- calculate_metrics(dataset_id, metrics?): 从上述快照计算 revenue_growth_yoy、net_income_growth_yoy、net_margin、operating_cash_flow_margin，返回百分比、公式与输入依据
-- generate_pdf(title, sections): 生成结构化 PDF 报告
-
-工作准则：
-1. 财务数字问题先 get_financials；增长率和利润率再调用 calculate_metrics，直接传回 dataset_id，不得重填数字或心算替代工具。同比至少获取两个财年；默认返回六种基础数据。
-2. 风险、业务原因、展望等文字分析用 search_knowledge_base 获取证据。需要解释财务变化时结合两类工具；多角度检索每次只问一个明确角度。
-3. 财务回答标明实际财年起止日期、币种、as_of 与 source_url；计算结果注明公式和百分比。不同公司的财年可能不同，不要把它们说成同一自然年。
-4. 当前财务工具仅支持年度 US-GAAP 美元数据，不支持季度、TTM、股价、预测。as_of 是公告披露截止日，默认今天，历史查询要显式指定；结果可能采用截止日前后续公告中的修订数，不能称为最初披露值。
-5. missing、ambiguous、unavailable 或 error 都不能当成零；数据口径不一致或分母非正时说明工具给出的原因，不编造数字或跳过校验。如果没有相关资料，明确告知。
-6. 用户明确要 PDF / 报告 / 导出文件时，先收集所需数字和文字证据，再调 generate_pdf 组织 sections=[{heading, body, citations}]，把公告链接和计算依据带入引用。
-7. 简洁、有据，不重复请求相同数据；工具失败时说明限制。
-"""
+DEFAULT_SYSTEM_PROMPT = settings.react_system_prompt
 
 
 @dataclass
@@ -72,22 +57,22 @@ class ReActExecutor:
         self,
         llm: LLMClient,
         *,
-        max_rounds: int = 5,
+        max_rounds: Optional[int] = None,
         system_prompt: Optional[str] = None,
     ) -> None:
         self.llm = llm
-        self.max_rounds = max_rounds
-        self.system_prompt = system_prompt or DEFAULT_SYSTEM_PROMPT
+        self.max_rounds = settings.react_max_rounds if max_rounds is None else max_rounds
+        self.system_prompt = system_prompt
         load_builtin_tools()  # idempotent — populates TOOLS_REGISTRY
         self._tools_schema = get_openai_tools_schema()
         logger.info(
             "ReActExecutor ready: max_rounds=%d, tools=%s",
-            max_rounds, [t["function"]["name"] for t in self._tools_schema],
+            self.max_rounds, [t["function"]["name"] for t in self._tools_schema],
         )
 
     def run(self, user_query: str) -> ReActResult:
         messages: List[Dict[str, Any]] = [
-            {"role": "system", "content": self.system_prompt},
+            {"role": "system", "content": self.system_prompt or settings.react_system_prompt},
             {"role": "user", "content": user_query},
         ]
         tool_traces: List[ToolCallTrace] = []

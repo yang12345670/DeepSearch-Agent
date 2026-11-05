@@ -111,12 +111,10 @@ def chat_stream(req: ChatRequest):
       - ``error``:     on failure
     """
     from app.agent.context_builder import (
-        SYSTEM_PROMPT,
         build_final_context,
         filter_retrieved_docs,
         parse_llm_response,
     )
-    from app.agent.orchestrator import _CHAT_ONLY_SYSTEM_PROMPT
 
     pipeline = get_agent_pipeline()
     session_id = getattr(req, "session_id", None) or "default"
@@ -143,7 +141,7 @@ def chat_stream(req: ChatRequest):
 
                 raw_parts = []
                 for token in pipeline.llm.stream_generate(
-                    system_prompt=_CHAT_ONLY_SYSTEM_PROMPT,
+                    system_prompt=settings.chat_only_system_prompt,
                     user_message=user_message,
                 ):
                     raw_parts.append(token)
@@ -164,14 +162,12 @@ def chat_stream(req: ChatRequest):
             # 1. Retrieve + filter
             kb = pipeline.knowledge_base
             candidates = kb.retrieve(req.query)
-            filtered = filter_retrieved_docs(
-                candidates, score_threshold=0.1, max_docs=5,
-            )
+            filtered = filter_retrieved_docs(candidates)
             evidence_texts = [chunk.text for chunk, _ in filtered]
 
             # 2. Build citations from filtered chunks
             citations = [
-                {"id": i + 1, "source": chunk.metadata.get("source", "unknown"), "text": chunk.text[:200].strip()}
+                {"id": i + 1, "source": chunk.metadata.get("source", "unknown"), "text": chunk.text[:settings.citation_excerpt_chars].strip()}
                 for i, (chunk, _) in enumerate(filtered)
             ]
 
@@ -187,7 +183,7 @@ def chat_stream(req: ChatRequest):
             # 4. Stream LLM tokens
             raw_parts = []
             for token in pipeline.llm.stream_generate(
-                system_prompt=SYSTEM_PROMPT,
+                system_prompt=settings.rag_system_prompt,
                 user_message=final_context,
             ):
                 raw_parts.append(token)

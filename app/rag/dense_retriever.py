@@ -8,8 +8,6 @@ from __future__ import annotations
 
 from typing import List, Optional, Sequence, Tuple
 
-import os
-
 import numpy as np
 
 from app.config import settings
@@ -25,16 +23,12 @@ class DenseRetriever:
         chunks: Sequence[DocumentChunk],
         model_name: str,
         *,
-        embedding_dim: int = 384,
+        embedding_dim: Optional[int] = None,
         embedding_backend: Optional[str] = None,
         faiss_index_path: Optional[str] = None,
     ) -> None:
         self.chunks: List[DocumentChunk] = list(chunks)
-        force_hash = embedding_backend == "hash_fallback" or os.environ.get("DEEPSEARCH_EMBED_FORCE_HASH", "").lower() in (
-            "1",
-            "true",
-            "yes",
-        )
+        force_hash = embedding_backend == "hash_fallback" or settings.embedding_force_hash
         embedder = get_embedding_model(model_name, force_hash=force_hash, dim=embedding_dim)
         self._embedder = embedder
         self._index = None
@@ -73,9 +67,10 @@ class DenseRetriever:
             vecs = vecs / np.maximum(norms, 1e-8)
             self._matrix = vecs
 
-    def search(self, query: str, top_k: int = 8) -> List[Tuple[DocumentChunk, float]]:
+    def search(self, query: str, top_k: Optional[int] = None) -> List[Tuple[DocumentChunk, float]]:
         """Return (chunk, dense_score) sorted by score desc."""
-        if not self.chunks:
+        top_k = settings.hybrid_top_k_dense if top_k is None else top_k
+        if not self.chunks or top_k <= 0:
             return []
         if self._index is not None:
             q = self._embedder.encode_query(query).astype(np.float32).reshape(1, -1)

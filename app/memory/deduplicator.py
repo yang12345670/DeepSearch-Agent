@@ -13,6 +13,8 @@ from typing import Any, List, Optional
 
 import numpy as np
 
+from app.config import settings
+
 logger = logging.getLogger(__name__)
 
 
@@ -30,10 +32,10 @@ class MemoryDeduplicator:
 
     def __init__(
         self,
-        similarity_threshold: float = 0.9,
+        similarity_threshold: Optional[float] = None,
         embedder=None,
     ) -> None:
-        self.similarity_threshold = similarity_threshold
+        self.similarity_threshold = settings.memory_dedup_threshold if similarity_threshold is None else similarity_threshold
         self.embedder = embedder
 
     def check_duplicate(

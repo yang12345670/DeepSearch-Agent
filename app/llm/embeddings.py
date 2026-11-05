@@ -7,10 +7,13 @@ from typing import Literal, Optional
 
 import numpy as np
 
+from app.config import settings
+
 EmbeddingBackend = Literal["sentence_transformers", "hash_fallback"]
 
 
-def _hash_embedding(text: str, dim: int = 384) -> np.ndarray:
+def _hash_embedding(text: str, dim: Optional[int] = None) -> np.ndarray:
+    dim = settings.embedding_dim if dim is None else dim
     vec = np.zeros(dim, dtype=np.float32)
     data = text.encode("utf-8", errors="ignore")
     if not data:
@@ -31,11 +34,14 @@ class EmbeddingModel:
 
     def __init__(
         self,
-        model_name: str = "sentence-transformers/all-MiniLM-L6-v2",
-        dim: int = 384,
+        model_name: Optional[str] = None,
+        dim: Optional[int] = None,
         *,
-        force_hash: bool = False,
+        force_hash: Optional[bool] = None,
     ) -> None:
+        model_name = settings.embedding_model_name if model_name is None else model_name
+        dim = settings.embedding_dim if dim is None else dim
+        force_hash = settings.embedding_force_hash if force_hash is None else force_hash
         self.model_name = model_name
         self.dim = dim
         self.backend: EmbeddingBackend = "hash_fallback"
@@ -52,7 +58,8 @@ class EmbeddingModel:
             self._model = None
             self.backend = "hash_fallback"
 
-    def encode(self, texts: list[str], batch_size: int = 32) -> np.ndarray:
+    def encode(self, texts: list[str], batch_size: Optional[int] = None) -> np.ndarray:
+        batch_size = settings.embedding_batch_size if batch_size is None else batch_size
         if not texts:
             return np.zeros((0, self.dim), dtype=np.float32)
         if self._model is not None:
@@ -74,9 +81,8 @@ class EmbeddingModel:
 def get_embedding_model(
     model_name: Optional[str] = None,
     *,
-    force_hash: bool = False,
-    dim: int = 384,
+    force_hash: Optional[bool] = None,
+    dim: Optional[int] = None,
 ) -> EmbeddingModel:
-    name = model_name or "sentence-transformers/all-MiniLM-L6-v2"
-    return EmbeddingModel(model_name=name, dim=dim, force_hash=force_hash)
+    return EmbeddingModel(model_name=model_name, dim=dim, force_hash=force_hash)
 

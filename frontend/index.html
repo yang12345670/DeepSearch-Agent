@@ -842,11 +842,24 @@
       </div><!-- /main-col -->
     </main>
 
+    <script src="config.js"></script>
     <script>
-      const API_BASE = "http://127.0.0.1:8000";
+      if (!window.DEEPSEARCH_CONFIG) {
+        const configError = document.createElement("p");
+        configError.textContent = "无法加载服务配置。请运行 python main.py，然后打开后端地址（端口由 .env 的 SERVER_PORT 配置）。";
+        configError.setAttribute("role", "alert");
+        document.getElementById("chat").appendChild(configError);
+        document.getElementById("sendBtn").disabled = true;
+        document.getElementById("uploadBtn").disabled = true;
+        throw new Error("Missing server configuration: open the UI served by python main.py.");
+      }
+      const API_BASE = window.DEEPSEARCH_CONFIG.API_BASE.replace(/\/+$/, "");
       const API_URL = API_BASE + "/chat";
       var SESSION_ID = localStorage.getItem("deepsearch_current_session") || "";
-      var USE_RAG = localStorage.getItem("deepsearch_use_rag") !== "false";
+      const savedRagPreference = localStorage.getItem("deepsearch_use_rag");
+      var USE_RAG = savedRagPreference === null
+        ? window.DEEPSEARCH_CONFIG.defaultUseRag
+        : savedRagPreference !== "false";
 
       // ---- RAG Toggle ----
       const ragToggleBtn = document.getElementById("ragToggleBtn");

@@ -76,9 +76,15 @@ source .venv/bin/activate
 python -m pip install -r requirements.txt
 ```
 
-### 2. 配置模型
+### 2. 配置环境
 
-创建 `.env`。使用其他兼容服务时，修改地址和模型名。
+首次使用时复制配置模板；已有 `.env` 则直接编辑，保留原有密钥。
+
+```bash
+cp .env.example .env
+```
+
+在 `.env` 中填写模型配置。使用其他兼容服务时，修改地址和模型名。
 
 ```dotenv
 LLM_PROVIDER=openai
@@ -91,25 +97,38 @@ CHUNKER_CLASSIFIER=rule
 ### 3. 启动服务
 
 ```bash
-# 终端 1：启动后端
 python main.py
 ```
 
-另开终端，在同一目录激活虚拟环境后启动前端：
+后端同时提供网页，无需单独启动前端。以下链接使用默认端口，可通过 `SERVER_PORT` 修改。
 
-```bash
-source .venv/bin/activate
-python -m http.server 8080 --directory frontend
-```
-
-**[打开网页 →](http://localhost:8080)** &nbsp; **[浏览 API →](http://localhost:8000/docs)**
+**[打开网页 →](http://localhost:8000)** &nbsp; **[浏览 API →](http://localhost:8000/docs)**
 
 <details>
 <summary>运行说明：模型、记忆与存储</summary>
 
 - 服务启动时自动检查语料并更新索引；首次使用需要下载 embedding / reranker 模型。
+- 修改分块或 embedding 配置后，运行 `python scripts/ingest_docs.py` 重建索引；长期记忆请使用新的 `MEMORY_INDEX_DIR`。
 - 没有配置可用模型时，只能使用本地兜底响应，无法提供正常的模型回答或 ReAct 工具调用。
 - SQLite 保存聊天记录；Agent 短期对话记忆需要 Redis，默认地址为 `redis://localhost:6379/0`，可通过 `REDIS_URL` 修改。
+
+</details>
+
+
+<details>
+<summary>统一配置：修改 .env 后重启服务</summary>
+
+所有运行参数和提示词集中在 `.env`，完整默认值见 [`.env.example`](.env.example)，由 [`app/config.py`](app/config.py) 统一读取和校验。优先级为：**进程环境变量 → `.env` → `.env.example`**。
+
+| 配置组 | 常用配置项 |
+| --- | --- |
+| 服务与前端 | `SERVER_HOST`、`SERVER_PORT`、`CORS_ALLOW_ORIGINS`、`FRONTEND_USE_RAG` |
+| 模型与检索 | `LLM_*`、`EMBEDDING_*`、`CHUNK_SIZE`、`RAG_*`、`HYBRID_*` |
+| Agent 与记忆 | `REACT_MAX_ROUNDS`、`TOKEN_*`、`SHORT_TERM_*`、`MEMORY_*` |
+| 金融数据与存储 | `EDGAR_*`、`SEC_*`、`ALPHAVANTAGE_*`、`FINANCE_*`、`CHAT_DB_PATH`、`PDF_EXPORTS_DIR` |
+| 提示词 | `REACT_SYSTEM_PROMPT`、`RAG_SYSTEM_PROMPT`、`PLANNER_SYSTEM_PROMPT` 等 |
+
+列表支持 JSON 数组或逗号分隔。提示词可在引号内跨行书写，请保留输出标签和模板占位符。`API_BASE_URL` 留空表示网页连接同源后端；浏览器只接收公开地址与 RAG 默认开关。`.env` 不提交到 Git。
 
 </details>
 
@@ -274,9 +293,15 @@ source .venv/bin/activate
 python -m pip install -r requirements.txt
 ```
 
-### 2. Configure the model
+### 2. Configure the environment
 
-Create `.env`. Change the base URL and model name to use another compatible service.
+For a new installation, copy the template. If `.env` already exists, edit it directly to preserve credentials.
+
+```bash
+cp .env.example .env
+```
+
+Set the model configuration in `.env`. Change the base URL and model name for another compatible service.
 
 ```dotenv
 LLM_PROVIDER=openai
@@ -289,25 +314,38 @@ CHUNKER_CLASSIFIER=rule
 ### 3. Start the app
 
 ```bash
-# Terminal 1: backend
 python main.py
 ```
 
-In a second terminal, activate the virtual environment in the same directory and start the frontend:
+The backend also serves the web UI. The links below use the default port; change it with `SERVER_PORT`.
 
-```bash
-source .venv/bin/activate
-python -m http.server 8080 --directory frontend
-```
-
-**[Open the web UI →](http://localhost:8080)** &nbsp; **[Explore the API →](http://localhost:8000/docs)**
+**[Open the web UI →](http://localhost:8000)** &nbsp; **[Explore the API →](http://localhost:8000/docs)**
 
 <details>
 <summary>Runtime notes: models, memory, and storage</summary>
 
 - Startup checks the corpus and updates its index. The first use downloads embedding / reranker models.
+- After changing chunking or embedding settings, run `python scripts/ingest_docs.py` to rebuild the index; use a new `MEMORY_INDEX_DIR` for long-term memory.
 - Without a working model configuration, only local fallback responses are available; normal model answers and ReAct tool calls require the model API.
 - SQLite stores chat history. Short-term agent memory requires Redis, available at `redis://localhost:6379/0` by default and configurable via `REDIS_URL`.
+
+</details>
+
+
+<details>
+<summary>Central configuration: edit .env and restart</summary>
+
+Runtime settings and prompts live in `.env`. See [`.env.example`](.env.example) for all defaults; [`app/config.py`](app/config.py) loads and validates them. Precedence: **process environment → `.env` → `.env.example`**.
+
+| Group | Common settings |
+| --- | --- |
+| Server and browser | `SERVER_HOST`, `SERVER_PORT`, `CORS_ALLOW_ORIGINS`, `FRONTEND_USE_RAG` |
+| Models and retrieval | `LLM_*`, `EMBEDDING_*`, `CHUNK_SIZE`, `RAG_*`, `HYBRID_*` |
+| Agent and memory | `REACT_MAX_ROUNDS`, `TOKEN_*`, `SHORT_TERM_*`, `MEMORY_*` |
+| Finance and storage | `EDGAR_*`, `SEC_*`, `ALPHAVANTAGE_*`, `FINANCE_*`, `CHAT_DB_PATH`, `PDF_EXPORTS_DIR` |
+| Prompts | `REACT_SYSTEM_PROMPT`, `RAG_SYSTEM_PROMPT`, `PLANNER_SYSTEM_PROMPT`, and others |
+
+Lists accept JSON arrays or comma-separated values. Quoted prompts can span lines; preserve output tags and template placeholders. Leave `API_BASE_URL` empty for same-origin requests. The browser receives only the public API address and default RAG toggle. `.env` stays out of Git.
 
 </details>
 

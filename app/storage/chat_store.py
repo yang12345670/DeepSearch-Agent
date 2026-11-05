@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Chat history persistence via local SQLite.
 
-Stores sessions and messages in `data/chat.db`. No external service required.
+Stores sessions and messages in the configured SQLite file. No external service required.
 """
 
 from __future__ import annotations
@@ -13,9 +13,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from app.config import settings
+
 logger = logging.getLogger(__name__)
 
-_DB_PATH = Path("data") / "chat.db"
+_DB_PATH = Path(settings.chat_db_path)
 _init_lock = threading.Lock()
 _initialized = False
 
@@ -27,7 +29,7 @@ def _now() -> str:
 def _connect() -> sqlite3.Connection:
     """Open a new connection. SQLite handles its own locking for short writes."""
     _ensure_schema()
-    conn = sqlite3.connect(str(_DB_PATH), timeout=5.0)
+    conn = sqlite3.connect(str(_DB_PATH), timeout=settings.chat_db_timeout)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
     return conn
@@ -41,7 +43,7 @@ def _ensure_schema() -> None:
         if _initialized:
             return
         _DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-        conn = sqlite3.connect(str(_DB_PATH), timeout=5.0)
+        conn = sqlite3.connect(str(_DB_PATH), timeout=settings.chat_db_timeout)
         try:
             conn.executescript(
                 """

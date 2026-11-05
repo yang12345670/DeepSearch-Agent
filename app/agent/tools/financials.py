@@ -1,6 +1,7 @@
 """Fetch annual company facts and return an immutable calculation input."""
 
 from app.agent.tools import register_tool
+from app.config import settings
 from app.finance.sec import METRIC_TAGS, get_financial_dataset
 from app.finance.store import save_dataset
 
@@ -22,15 +23,15 @@ from app.finance.store import save_dataset
             "metrics": {
                 "type": "array", "items": {"type": "string", "enum": list(METRIC_TAGS)},
                 "minItems": 1, "uniqueItems": True,
-                "description": "Base facts to fetch; defaults to all six",
+                "description": "Base facts to fetch; defaults to the configured financial fact list.",
             },
             "period": {"type": "string", "enum": ["annual"]},
-            "limit": {"type": "integer", "minimum": 1, "maximum": 10, "default": 3},
+            "limit": {"type": "integer", "minimum": 1, "maximum": 10, "default": settings.financial_default_limit},
             "as_of": {"type": "string", "description": "Filing cutoff YYYY-MM-DD; defaults to today (UTC)"},
         },
         "required": ["ticker"], "additionalProperties": False,
     },
 )
-def get_financials(ticker: str, metrics=None, period="annual", limit=3, as_of=None) -> dict:
+def get_financials(ticker: str, metrics=None, period="annual", limit=None, as_of=None) -> dict:
     dataset = get_financial_dataset(ticker, metrics=metrics, period=period, limit=limit, as_of=as_of)
     return {"dataset_id": save_dataset(dataset), **dataset}
